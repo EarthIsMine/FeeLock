@@ -1,55 +1,148 @@
 # FeeLock
 
-> The fee you see in the quote is the fee you pay at execution.
+> The fee you see in the quote is the fee you pay.
 
-FeeLock is a Uniswap v4 fee-commitment guard for Monad. Pools created through
-`FeeCommitHook` lock a maximum LP fee at initialization, and swappers can pass
-their own `maxFee` in `hookData` so `beforeSwap` reverts if the applied fee is
-higher. The `@feelock/sdk` guard checks candidate pools before signing and
-routes away from pools whose quoted fee differs from what execution would charge.
+A Uniswap v4 hook can charge a different fee on every swap, including a low one when a quoter asks and a high one
+when a real trade comes in. Best-quote routing walks straight into that. FeeLock closes the gap on Monad in two
+layers:
 
-Monad Metropolis submission. Full specification: [docs/SPEC.md](docs/SPEC.md).
+- **On chain:** `FeeCommitHook` pools fix their fee cap when they are created, and the swapper pins the fee seen in
+  the quote through `hookData`. The hook reverts if execution would charge more.
+- **Before signing:** the `@feelock/sdk` guard quotes every candidate pool, simulates the real swap from the user's
+  own address, and returns `SAFE`, `UNVERIFIED`, `FEE_MISMATCH` or `LOOKUP_FAILED` per pool.
 
-## Problem
+Built for Monad Metropolis. Live on Monad testnet (see [Deployments](#deployments)). Specification:
+[docs/SPEC.md](docs/SPEC.md) · demo script: [docs/DEMO.md](docs/DEMO.md) · submission text:
+[docs/SUBMISSION.md](docs/SUBMISSION.md).
 
-<!-- TODO(#24): quote-divergence attack (0.05% quoted, 10% executed), demo numbers -->
+## The problem
+
+The demo pair MON/FLD has two pools:
+
+| Pool | Hook | What the quoter sees | What a swap pays |
+|---|---|---|---|
+| canonical | `FeeCommitHook`, cap 1%, fee 0.3% | 0.3% | 0.3% |
+| look-alike | `QuoteAwareFeeHook` (attack) | 0.05% | **10%** |
+
+The look-alike also sits one tick spacing above the canonical price, so it wins every quote comparison. On Monad
+testnet, the same 0.001 MON trade:
+
+| Route | Quoted | Received |
+|---|---|---|
+| Best quote (look-alike) | 386,995.97 FLD | **348,490.94 FLD (−9.94%)** ([tx](https://testnet.monadscan.com/tx/0xdda717bcd741c4f103f7b8cc456134d53216031d17a127f8c8e59f7ee4f0643b)) |
+| FeeLock (canonical) | 382,486.63 FLD | **382,486.63 FLD (= quote)** ([tx](https://testnet.monadscan.com/tx/0x9b008fc975676db69cc719fc9d1ae68f4e62f202525c8150c503dadc5925cece)) |
+
+At 5% slippage the naive swap reverts and the trader only loses gas; at 15% it goes through and the trader loses
+about 10%. Slippage settings cannot fix this: the loss is whatever the tolerance allows.
 
 ## How it works
 
-<!-- TODO(#24): CanonicalPoolRegistry, FeeCommitHook, SDK verdicts -->
+```text
+            ┌──────────────────────────── before signing (SDK) ────────────────────────────┐
+ candidate  │ CanonicalPoolRegistry   FeeCommitHook        V4Quoter quote   eth_call of the  │  verdict
+ pools ────▶│ declared by issuer?     trusted hook, cap?   (what a router   real swap from   │──▶ per pool
+            │                                              sees)            the user's addr  │
+            └───────────────────────────────────────────────────────────────────────────────┘
+                                                   │ SAFE pool + hookData (pinned fee) + gas limit
+                                                   ▼
+            ┌──────────────────────────── at execution (hook) ─────────────────────────────┐
+            │ FeeCommitHook.beforeSwap: fee = committed current fee; revert if above the     │
+            │ cap or above the fee pinned in hookData                                        │
+            └───────────────────────────────────────────────────────────────────────────────┘
+```
 
-| Verdict | Meaning | Recommended action |
+- **[`CanonicalPoolRegistry`](contracts/src/CanonicalPoolRegistry.sol)**: only a token's issuer (its CREATE2 deployer
+  or its `owner()`) can declare the token's canonical pool, once. No owner, no upgrades.
+- **[`FeeCommitHook`](contracts/src/FeeCommitHook.sol)**: pools can only be created through `initializePool`, which
+  stores `maxFee`. The fee manager moves the fee within `[0, maxFee]`. `beforeSwap` charges the current fee and
+  reverts with `FeeAboveUserLimit` when `hookData` carries a lower limit. V4Quoter forwards the same `hookData`, so a
+  quote and its swap follow the same rule.
+- **[`@feelock/sdk`](packages/sdk/src)**: `feelockGuard` runs the registry and commitment lookups, the quote and the
+  simulation at one block, and judges each pool:
+
+| Verdict | When | Recommended action |
 |---|---|---|
-| `SAFE` | Static pool, or trusted FeeCommitHook pool with `maxFee` within the user's limit | Proceed |
-| `UNVERIFIED` | Dynamic-fee hook pool without a fee commitment | Requote over SAFE pools, warn if none |
-| `FEE_MISMATCH` | Quote and simulated execution diverge, or quoted fee exceeds commitment | Block |
-| `LOOKUP_FAILED` | Any registry, commitment, quote or simulation lookup failed | Hold and retry |
+| `SAFE` | Static pool, or trusted FeeCommitHook pool whose cap is within the user's limit | Proceed |
+| `UNVERIFIED` | Any other hook or dynamic-fee pool (a canonical one too, if nothing caps its fee) | Requote over SAFE pools; warn if none |
+| `FEE_MISMATCH` | Simulated execution pays less than the quote beyond tolerance (10 bps), or a committed pool charges above its cap | Block |
+| `LOOKUP_FAILED` | Any registry, commitment, quote or simulation lookup failed | Hold and retry; the user cannot override |
+
+A route is as bad as its worst hop: `FEE_MISMATCH > LOOKUP_FAILED > UNVERIFIED > SAFE`. A failed lookup never reads
+as "not registered" or "not committed".
 
 ## Why Monad
 
-<!-- TODO(#24): async execution, gas-limit charging -->
+- **Fast blocks, stale quotes.** Blocks come about every 400 ms, so the state a quote saw is quickly out of date. The
+  guard reads at one pinned, uncached block, and the hook enforces the cap and the pinned fee at execution instead of
+  trusting the quote.
+- **The gas limit is billed.** On Monad testnet the receipts of the demo swaps show `gasUsed` equal to the gas limit.
+  The guard sets the limit from a fresh estimate plus 10% (deploy scripts use `--gas-estimate-multiplier 110`).
+- **Public RPC limits.** Monad's public RPC caps clients at 15 requests/sec and answers with a JSON-RPC error, not an
+  HTTP 429. The SDK transport spaces requests (`maxRequestsPerSecond`) so the guard does not fail closed for that
+  reason.
+- **Mainnet stays official.** On Monad mainnet FeeLock targets the official Uniswap v4 deployment; the fork test runs
+  against it (`FOUNDRY_PROFILE=fork forge test`).
+
+## Quick start
+
+Requirements: Foundry 1.8+, Node 22+, pnpm 10.
+
+```sh
+git clone --recurse-submodules https://github.com/EarthIsMine/FeeLock && cd FeeLock
+cp .env.example .env && ln -s ../.env contracts/.env   # Foundry only reads contracts/.env
+pnpm install
+```
+
+**Local demo (anvil):**
+
+```sh
+anvil                           # terminal 1
+pnpm deploy:local               # terminal 2: deploys everything, same addresses as contracts/deployments/31337.json
+pnpm -F @feelock/sdk demo       # naive vs FeeLock in the terminal
+VITE_CHAIN_ID=31337 pnpm -F web dev
+```
+
+**Monad testnet** (contracts already deployed):
+
+```sh
+pnpm -F @feelock/sdk demo --chain 10143             # simulation only
+FEELOCK_PK=0x… pnpm -F @feelock/sdk demo --chain 10143 --execute
+pnpm -F web dev                                      # http://localhost:5173, add ?feelock=on to start guarded
+```
+
+`?snapshot` shows the recorded testnet snapshot; the page also falls back to it, labelled, when the RPC is down.
+
+## Tests
+
+```sh
+cd contracts && forge test                               # 69 tests: registry, hook, fuzz + invariant, attack, E2E, router
+FOUNDRY_PROFILE=fork forge test                          # 6 tests against the official v4 deployment on Monad mainnet
+pnpm -F @feelock/sdk test                                # 55 tests, on throwaway anvil chains deployed by the real scripts
+```
 
 ## Repository layout
 
 ```text
-contracts/      Foundry: registry, FeeCommitHook, demo contracts, scripts
-packages/sdk/   @feelock/sdk (TypeScript, viem)
-apps/web/       Vite + React demo app
-apps/worker/    Optional pool indexer
-docs/           SPEC.md, DEMO.md
+contracts/      Foundry: CanonicalPoolRegistry, FeeCommitHook, demo contracts, deploy scripts, deployments/
+packages/sdk/   @feelock/sdk: lookups, quote + simulation, judge, feelockGuard, CLI demo (cli/demo.ts)
+apps/web/       Vite + React app: pool list, guard toggle, swap, verdicts, receipts, snapshot fallback
+scripts/        sync-abi.ts (forge out → SDK ABIs), deploy-local.sh
+docs/           SPEC.md, DEMO.md, SUBMISSION.md
 ```
 
-## Getting started
+## Design notes and limits
 
-Requirements: Foundry v1.8.0+, Node 22+, pnpm.
-
-```sh
-git submodule update --init --recursive
-cp .env.example .env
-
-cd contracts && forge build && forge test
-pnpm install && pnpm -F @feelock/sdk test
-```
+- `hookData` pins the **fee seen in the quote**, not only the user's limit: a fee manager raising the fee within the
+  cap after the quote makes the swap revert instead of costing more.
+- Execution-time enforcement covers FeeCommitHook pools only. Any other hook can ignore `hookData`; the guard keeps
+  such pools out of the route (`UNVERIFIED`, or `FEE_MISMATCH` when the simulation shows the gap).
+- The simulation cannot see a hook that branches on block values, or one whose state changes between simulation
+  and execution. For FeeCommitHook pools the cap and the pinned fee still hold; for other pools this is why they are
+  never `SAFE`.
+- `declareByOwner` trusts the token's current `owner()`; whoever owns it first and declares fixes the pool for good.
+- The guard handles single-hop routes (DemoSwapRouter); the judge already combines multi-hop verdicts.
+- v4 skips a hook's own callbacks when the hook calls PoolManager (`Hooks.noSelfCall`), so
+  `FeeCommitHook.beforeInitialize` only ever runs for third-party initializations, and always reverts.
 
 ## Deployments
 
