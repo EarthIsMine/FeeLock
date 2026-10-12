@@ -22,3 +22,6 @@ data/
 
 # SDK tests deploy to throwaway anvil chains here
 contracts/deployments/.test-*/
+
+# forge broadcast lock files
+contracts/broadcast/**/*.lock

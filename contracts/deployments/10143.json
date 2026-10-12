@@ -1,0 +1,41 @@
+{
+  "chainId": 10143,
+  "demo": {
+    "attackHook": "0x4620ba7142C9e88d3Ac905A6bC1f85C440C54080",
+    "launchpad": "0x7952f6CA5E2491ee23b0e443a5A3A8C60b27bDBF",
+    "pools": [
+      {
+        "key": {
+          "currency0": "0x0000000000000000000000000000000000000000",
+          "currency1": "0x1556af603750fd504Bd044bDcd61439D1eBD71dF",
+          "fee": 8388608,
+          "hooks": "0x3729e78c687307975B5EEf4aBc26905d50902080",
+          "tickSpacing": 60
+        },
+        "label": "canonical",
+        "poolId": "0xb021a587a99dc657be5c2d013e3b5b776e07ec6c6557db90ac7fd517d5601af0"
+      },
+      {
+        "key": {
+          "currency0": "0x0000000000000000000000000000000000000000",
+          "currency1": "0x1556af603750fd504Bd044bDcd61439D1eBD71dF",
+          "fee": 8388608,
+          "hooks": "0x4620ba7142C9e88d3Ac905A6bC1f85C440C54080",
+          "tickSpacing": 60
+        },
+        "label": "look-alike",
+        "poolId": "0xb50665c0235b2690219a63e190fc9b2f9a690e9a236691dcafd3819f063dfa8e"
+      }
+    ],
+    "seeder": "0x1626180DDeE783d675035b924BdA07705C5f89B5",
+    "token": "0x1556af603750fd504Bd044bDcd61439D1eBD71dF"
+  },
+  "deployBlock": 70435253,
+  "feeCommitHook": "0x3729e78c687307975B5EEf4aBc26905d50902080",
+  "feeCommitHookCodeHash": "0x13d12a83dda1552654cea2e9e9876d3ae2ffe4f08636b6f0294a404e06ad267a",
+  "poolManager": "0x8a464aB1f9fe9b63ac9600b8ad3e98d69B033dB8",
+  "quoter": "0x31909f3DE05310BC39137e945cDe05d8db3481eF",
+  "registry": "0xa97527da9e8b787E8793aC0A5e19FCb1a7D27586",
+  "router": "0x0deFcb2536555a077CcA551017f410d3bDAf2fCB",
+  "stateView": "0xd088D8Ec06FE20A514535334Fb0FCdAAF3Cd4093"
+}
