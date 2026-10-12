@@ -1,0 +1,21 @@
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# JS
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# Worker output
+data/

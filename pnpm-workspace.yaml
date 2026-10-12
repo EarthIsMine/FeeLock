@@ -1,0 +1,4 @@
+# TS packages only. contracts/ is a standalone Foundry project.
+packages:
+  - packages/*
+  - apps/*
