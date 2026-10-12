@@ -193,7 +193,7 @@ error FeeAboveUserLimit(uint24 fee, uint24 userMax); error NotFeeManager(); erro
 | `CanonicalPoolRegistry.t.sol` | 두 경로 성공, 5개 에러, 이벤트, 재선언 불가, 비 Ownable 토큰 |
 | `FeeCommitHook.t.sol` | 훅 우회 초기화 차단, 정적 수수료 키 거부, setFee 상한/권한, hookData userMax revert, hookData 없을 때 동작, 견적 == 체결 |
 | `FeeCommitHook.fuzz.t.sol` | 임의 setFee/스왑 시퀀스에서 적용 수수료 <= maxFee 불변식 |
-| `QuoteDivergenceAttack.t.sol` | 공격 풀이 견적에서 이기고, 5% 슬리피지에서 revert, 15%에서 약 9.8% 손실 (Klamp 수치 재현) |
+| `QuoteDivergenceAttack.t.sol` | 공격 풀이 견적에서 이기고, 5% 슬리피지에서 revert, 15%에서 약 9.95% 손실 (Klamp 로컬 테스트 수치 재현. Klamp의 Sepolia 포크 측정값은 약 9.8%) |
 | `FeeLockE2E.t.sol` | 런치 → 공격 풀 시딩 → naive 라우팅 손실 → 대표 풀 스왑 정상 |
 | `MonadFork.t.sol` | Monad 메인넷(143) 포크에서 공식 PoolManager의 POOLS_SLOT 확인, 공식 V4Quoter로 FeeCommitHook 풀 견적 |
 
