@@ -7,4 +7,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [react()],
   envDir: fileURLToPath(new URL('../..', import.meta.url)),
+  // viem plus the contract ABIs make one ~580 kB chunk (170 kB gzipped); fine for a single-screen demo.
+  build: { chunkSizeWarningLimit: 700 },
 });

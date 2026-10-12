@@ -10,11 +10,20 @@ import { amount } from '../lib/format';
 import { buildSwapCall, describeError, feelockGuard, minAmountOut } from '../lib/sdk';
 import { walletClientFor } from '../lib/wallet';
 
+/** What a mined swap cost. Monad bills the gas limit, so gasUsed in the receipt equals the limit. */
+export interface MinedInfo {
+  hash: Hex;
+  blockNumber: bigint;
+  gasLimit: bigint;
+  gasCharged: bigint;
+}
+
 export type SwapStatus =
   | { step: 'idle' }
   | { step: 'checking' | 'signing' }
   | { step: 'pending'; hash: Hex }
-  | { step: 'done'; hash: Hex; received: bigint; quoted: bigint; pool: PoolRow; guarded: boolean }
+  | ({ step: 'done'; received: bigint; quoted: bigint; pool: PoolRow; guarded: boolean } & MinedInfo)
+  | ({ step: 'reverted'; quoted: bigint; minOut: bigint; pool: PoolRow; guarded: boolean } & MinedInfo)
   | { step: 'failed'; error: string; hash?: Hex };
 
 const SLIPPAGES = [50, 500, 1500];
@@ -92,10 +101,21 @@ export function SwapPanel(p: Props) {
       const client = walletClientFor(wallet.wallet.provider, wallet.account);
       const hash = await client.sendTransaction({ ...call, gas, account: wallet.account, chain });
       update({ step: 'pending', hash });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      if (receipt.status !== 'success') return update({ step: 'failed', hash, error: 'the transaction reverted on chain' });
+      const [receipt, tx] = await Promise.all([
+        publicClient.waitForTransactionReceipt({ hash }),
+        publicClient.getTransaction({ hash }),
+      ]);
+      const mined: MinedInfo = {
+        hash,
+        blockNumber: receipt.blockNumber,
+        gasLimit: tx.gas,
+        gasCharged: receipt.gasUsed * receipt.effectiveGasPrice,
+      };
+      if (receipt.status !== 'success') {
+        return update({ step: 'reverted', ...mined, quoted, minOut, pool: route, guarded: guardOn });
+      }
       const [event] = parseEventLogs({ abi: demoSwapRouterAbi, eventName: 'SwapExecuted', logs: receipt.logs });
-      update({ step: 'done', hash, received: event?.args.amountOut ?? 0n, quoted, pool: route, guarded: guardOn });
+      update({ step: 'done', ...mined, received: event?.args.amountOut ?? 0n, quoted, pool: route, guarded: guardOn });
     } catch (e) {
       update({ step: 'failed', error: describeError(e) });
     }

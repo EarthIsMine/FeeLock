@@ -1,0 +1,72 @@
+{
+  "chainId": 10143,
+  "blockNumber": "70441291",
+  "recordedAt": "2026-10-12T16:08:51.388Z",
+  "amountIn": "1000000000000000",
+  "token": {
+    "address": "0x1556af603750fd504Bd044bDcd61439D1eBD71dF",
+    "symbol": "FLD",
+    "decimals": 18
+  },
+  "rows": [
+    {
+      "label": "canonical",
+      "poolId": "0xb021a587a99dc657be5c2d013e3b5b776e07ec6c6557db90ac7fd517d5601af0",
+      "hooks": "0x3729e78c687307975B5EEf4aBc26905d50902080",
+      "verdict": "SAFE",
+      "reasons": [
+        "fee 3000 pips, committed cap 10000 within your 10000",
+        "canonical pool"
+      ],
+      "canonical": true,
+      "commitment": {
+        "maxFee": 10000,
+        "currentFee": 3000
+      },
+      "quoted": "381890379345000314381984",
+      "simulated": "381890379345000314381984",
+      "divergenceBps": 0
+    },
+    {
+      "label": "look-alike",
+      "poolId": "0xb50665c0235b2690219a63e190fc9b2f9a690e9a236691dcafd3819f063dfa8e",
+      "hooks": "0x4620ba7142C9e88d3Ac905A6bC1f85C440C54080",
+      "verdict": "FEE_MISMATCH",
+      "reasons": [
+        "execution pays 994 bps less than the quote (tolerance 10)",
+        "not the canonical pool"
+      ],
+      "canonical": false,
+      "commitment": null,
+      "quoted": "386180025884228445272947",
+      "simulated": "347756161133851650285175",
+      "divergenceBps": 994
+    }
+  ],
+  "naiveRoute": "0xb50665c0235b2690219a63e190fc9b2f9a690e9a236691dcafd3819f063dfa8e",
+  "feelockRoute": "0xb021a587a99dc657be5c2d013e3b5b776e07ec6c6557db90ac7fd517d5601af0",
+  "swaps": [
+    {
+      "route": "naive",
+      "hash": "0xdda717bcd741c4f103f7b8cc456134d53216031d17a127f8c8e59f7ee4f0643b",
+      "status": "success",
+      "blockNumber": "70437152",
+      "poolId": "0xb50665c0235b2690219a63e190fc9b2f9a690e9a236691dcafd3819f063dfa8e",
+      "amountIn": "1000000000000000",
+      "received": "348490942735203608204074",
+      "gasLimit": "208709",
+      "gasCharged": "21288318000000000"
+    },
+    {
+      "route": "feelock",
+      "hash": "0x9b008fc975676db69cc719fc9d1ae68f4e62f202525c8150c503dadc5925cece",
+      "status": "success",
+      "blockNumber": "70437160",
+      "poolId": "0xb021a587a99dc657be5c2d013e3b5b776e07ec6c6557db90ac7fd517d5601af0",
+      "amountIn": "1000000000000000",
+      "received": "382486627528078141692929",
+      "gasLimit": "166796",
+      "gasCharged": "17013192000000000"
+    }
+  ]
+}

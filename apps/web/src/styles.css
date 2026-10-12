@@ -437,4 +437,92 @@ a {
   .layout > .col > .swap {
     order: 2;
   }
+  .layout > .span-all {
+    order: 4;
+  }
+}
+.layout-single {
+  display: grid;
+  gap: 16px;
+  max-width: 860px;
+}
+.span-all {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.explainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.explainer p,
+.explainer ul {
+  margin: 0;
+  padding-left: 0;
+}
+.explainer ul {
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+.compare-wrap {
+  overflow-x: auto;
+}
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+}
+.compare th,
+.compare td {
+  padding: 6px 8px 6px 0;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--border);
+}
+.compare thead th {
+  border-top: none;
+}
+.compare tbody th {
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.compare td.num {
+  display: table-cell;
+  font-variant-numeric: tabular-nums;
+}
+.compare-sum {
+  margin: 12px 0 0;
+}
+.receipt {
+  border-left-width: 4px;
+}
+.receipt-rows {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.receipt-rows div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+}
+.receipt-rows dt {
+  color: var(--muted);
+}
+.receipt-rows dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.receipt h2 {
+  margin-top: 0;
+}
+.snapshot-banner {
+  border-color: var(--warn);
+  border-left-width: 4px;
+}
+.snapshot-banner p {
+  margin: 4px 0 0;
 }
