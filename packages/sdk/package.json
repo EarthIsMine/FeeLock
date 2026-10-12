@@ -1,0 +1,26 @@
+{
+  "name": "@feelock/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Checks Uniswap v4 pools on Monad before signing: canonical pool, fee commitment, quote vs execution.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "viem": "2.57.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}
