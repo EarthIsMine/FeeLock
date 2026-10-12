@@ -20,6 +20,9 @@ runs = 256
 [profile.fork]
 match_path = "test/*Fork.t.sol"
 no_match_path = "test/__none__"
+# Foundry runs Monad as its own EVM family, so the fork must come from config/CLI, not vm.createSelectFork.
+# No fork block: Monad nodes do not serve arbitrary past state, the latest block is used.
+eth_rpc_url = "monad" # alias from [rpc_endpoints]; env vars are not expanded here
 
 [lint]
 lint_on_build = false
