@@ -19,3 +19,6 @@ contracts/broadcast/**/dry-run/
 
 # Worker output
 data/
+
+# SDK tests deploy to throwaway anvil chains here
+contracts/deployments/.test-*/

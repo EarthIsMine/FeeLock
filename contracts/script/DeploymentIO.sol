@@ -9,7 +9,8 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 
-/// @notice Reads and writes deployments/<chainId>.json. The chain id always comes from the RPC (block.chainid) and must
+/// @notice Reads and writes deployments/<chainId>.json (FEELOCK_DEPLOYMENTS_DIR, relative to contracts/, overrides the
+///         directory; it must stay under deployments/ for fs_permissions). The chain id always comes from the RPC (block.chainid) and must
 ///         match the file. Every field is written on every save; address(0) means "not deployed".
 /// @dev Monad charges the full gas limit, so broadcast with a tight multiplier, e.g.
 ///      `forge script <Script> --rpc-url monad_testnet --broadcast --gas-estimate-multiplier 110`.
@@ -38,8 +39,12 @@ abstract contract DeploymentIO is Script {
         PoolKey lookAlike;
     }
 
+    function _dir() internal view returns (string memory) {
+        return string.concat(vm.projectRoot(), "/", vm.envOr("FEELOCK_DEPLOYMENTS_DIR", string("deployments")));
+    }
+
     function _path() internal view returns (string memory) {
-        return string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json");
+        return string.concat(_dir(), "/", vm.toString(block.chainid), ".json");
     }
 
     function _deployerKey() internal view returns (uint256) {
@@ -100,6 +105,7 @@ abstract contract DeploymentIO is Script {
         vm.serializeBytes32(root, "feeCommitHookCodeHash", d.feeCommitHookCodeHash);
         vm.serializeString(root, "demo", demo);
         string memory json = vm.serializeUint(root, "deployBlock", d.deployBlock);
+        vm.createDir(_dir(), true);
         vm.writeJson(json, _path());
     }
 
