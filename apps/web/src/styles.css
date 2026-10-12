@@ -1,0 +1,148 @@
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --muted: #71717a;
+  --accent: #6d28d9;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0b0f;
+    --surface: #15151b;
+    --border: #2a2a33;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --accent: #a78bfa;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    color-scheme: dark;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+a {
+  color: var(--accent);
+}
+.muted {
+  color: var(--muted);
+}
+.error {
+  color: var(--bad);
+}
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.brand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+.brand strong {
+  font-size: 1.2rem;
+}
+.header-right,
+.wallet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.badge-ok .dot {
+  background: var(--ok);
+}
+.badge-down .dot {
+  background: var(--bad);
+}
+.button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+.button.ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+.button.warn {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+.wallet-icon {
+  width: 16px;
+  height: 16px;
+}
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+.card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+.contracts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+.contracts dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.contracts dd {
+  margin: 0;
+}
