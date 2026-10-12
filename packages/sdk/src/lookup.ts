@@ -12,7 +12,8 @@ export type LookupFailure =
   | 'contract-missing' // no code at a configured contract
   | 'contract-mismatch' // contract present but not the one configured (wrong PoolManager, code hash)
   | 'record-mismatch' // a returned record is internally inconsistent
-  | 'pool-uninitialized'; // the record names a pool PoolManager has not initialized
+  | 'pool-uninitialized' // the record names a pool PoolManager has not initialized
+  | 'reverted'; // a quote or simulation reverted (detail has the decoded reason)
 
 export interface LookupOptions {
   /** Pin every read to this block. Default: latest. */

@@ -3,4 +3,7 @@ export * from './config.js';
 export * from './feeCommit.js';
 export * from './lookup.js';
 export * from './poolKey.js';
+export * from './quote.js';
 export * from './registry.js';
+export * from './revert.js';
+export * from './simulate.js';
