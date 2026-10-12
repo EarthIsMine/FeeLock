@@ -14,7 +14,11 @@ const env = Object.fromEntries(
 const configured = rpcUrlsFromEnv(CHAIN_ID, env);
 export const rpcUrls: readonly string[] = configured.length > 0 ? configured : chain.rpcUrls.default.http;
 
-export const publicClient: PublicClient = createPublicClient({ chain, transport: rpcTransport(rpcUrls) });
+// Public Monad RPCs cap clients at 15 requests/sec; stay under it so the guard never fails on a rate limit.
+export const publicClient: PublicClient = createPublicClient({
+  chain,
+  transport: rpcTransport(rpcUrls, { maxRequestsPerSecond: 10 }),
+});
 
 const EXPLORERS: Record<number, string> = {
   [MONAD_TESTNET]: 'https://testnet.monadscan.com',

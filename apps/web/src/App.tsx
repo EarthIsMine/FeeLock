@@ -1,10 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useWallet } from './hooks/useWallet';
-import { addressUrl, chain, CHAIN_ID } from './lib/chain';
+import { useEffect, useMemo, useState } from 'react';
+import { parseEther } from 'viem';
+import { GuardToggle } from './components/GuardToggle';
+import { PoolList } from './components/PoolList';
+import { SwapPanel, type SwapStatus } from './components/SwapPanel';
+import { VerdictCard } from './components/VerdictCard';
+import { useFeeLock } from './hooks/useFeeLock';
+import { useWallet, type WalletState } from './hooks/useWallet';
+import { chain, CHAIN_ID, txUrl } from './lib/chain';
 import { deployment } from './lib/deployments';
+import { amount, short } from './lib/format';
 import { networkStatus, type NetworkStatus } from './lib/sdk';
+import { tokenMeta, type TokenMeta } from './lib/token';
 
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+/** The swapper's fee limit: 1%, matching the demo pool's committed cap. */
+const MAX_FEE_PIPS = 10_000;
 
 function NetworkBadge() {
   const [status, setStatus] = useState<NetworkStatus>();
@@ -31,8 +40,7 @@ function NetworkBadge() {
   );
 }
 
-function WalletButton() {
-  const w = useWallet();
+function WalletButton({ w }: { w: WalletState }) {
   if (w.account) {
     return (
       <div className="wallet">
@@ -63,35 +71,33 @@ function WalletButton() {
   );
 }
 
-function DeploymentSummary() {
-  if (!deployment) {
-    return <p className="error">No FeeLock deployment for chain {CHAIN_ID} in contracts/deployments.</p>;
+function parseAmount(text: string): bigint | undefined {
+  try {
+    const v = parseEther(text);
+    return v > 0n ? v : undefined;
+  } catch {
+    return undefined;
   }
-  const { config, demo } = deployment;
-  const rows: [string, string][] = [
-    ['CanonicalPoolRegistry', config.registry],
-    ['FeeCommitHook', config.trustedFeeCommitHooks[0]!.address],
-    ['V4Quoter', config.quoter],
-    ['DemoSwapRouter', config.router],
-    ...(demo ? ([['Demo token', demo.token]] as [string, string][]) : []),
-  ];
-  return (
-    <dl className="contracts">
-      {rows.map(([name, address]) => (
-        <div key={name}>
-          <dt>{name}</dt>
-          <dd>
-            <a href={addressUrl(address)} target="_blank" rel="noreferrer">
-              <code>{short(address)}</code>
-            </a>
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
 }
 
 export default function App() {
+  const wallet = useWallet();
+  // ?feelock=on opens with the guard on (handy for demo links).
+  const [guardOn, setGuardOn] = useState(() => new URLSearchParams(location.search).get('feelock') === 'on');
+  const [amountText, setAmountText] = useState('0.001');
+  const [token, setToken] = useState<TokenMeta>();
+  const [last, setLast] = useState<SwapStatus>({ step: 'idle' });
+  const amountIn = useMemo(() => parseAmount(amountText), [amountText]);
+  const feelock = useFeeLock(amountIn, guardOn, wallet.ready ? wallet.account : undefined, MAX_FEE_PIPS);
+  const route = guardOn ? feelock.bestSafe : feelock.bestQuote;
+
+  useEffect(() => {
+    if (deployment?.demo) void tokenMeta(deployment.demo.token).then(setToken);
+  }, []);
+
+  const symbol = token?.symbol ?? '…';
+  const decimals = token?.decimals ?? 18;
+
   return (
     <>
       <header className="header">
@@ -101,15 +107,65 @@ export default function App() {
         </div>
         <div className="header-right">
           <NetworkBadge />
-          <WalletButton />
+          <WalletButton w={wallet} />
         </div>
       </header>
-      <main className="main">
-        <section className="card">
-          <h2>Deployment</h2>
-          <DeploymentSummary />
-        </section>
-      </main>
+      {!deployment?.demo ? (
+        <main className="main">
+          <p className="error">No FeeLock demo deployment for chain {CHAIN_ID} in contracts/deployments.</p>
+        </main>
+      ) : (
+        <main className="main layout">
+          <div className="col">
+            <GuardToggle on={guardOn} onChange={setGuardOn} />
+            <section className="card">
+              <h2>
+                Pools for MON → {symbol}
+                {feelock.loading && <span className="muted small"> · updating</span>}
+              </h2>
+              <PoolList
+                rows={feelock.rows}
+                guardOn={guardOn}
+                routeId={route?.poolId}
+                bestQuoteId={feelock.bestQuote?.poolId}
+                symbol={symbol}
+                decimals={decimals}
+              />
+            </section>
+            <VerdictCard rows={feelock.rows} guardOn={guardOn} routeId={route?.poolId} />
+          </div>
+          <div className="col">
+            <SwapPanel
+              amountText={amountText}
+              onAmountText={setAmountText}
+              amountIn={amountIn}
+              guardOn={guardOn}
+              feelock={feelock}
+              route={route}
+              wallet={wallet}
+              maxFeePips={MAX_FEE_PIPS}
+              symbol={symbol}
+              decimals={decimals}
+              onResult={setLast}
+            />
+            {(last.step === 'pending' || last.step === 'done') && (
+              <section className="card">
+                <h2>Last swap</h2>
+                {last.step === 'pending' && <p className="muted">Waiting for the block…</p>}
+                {last.step === 'done' && (
+                  <p>
+                    Received <strong>{amount(last.received, decimals)} {symbol}</strong> from {last.pool.label} (quoted{' '}
+                    {amount(last.quoted, decimals)}).
+                  </p>
+                )}
+                <a href={txUrl(last.hash)} target="_blank" rel="noreferrer">
+                  View transaction
+                </a>
+              </section>
+            )}
+          </div>
+        </main>
+      )}
     </>
   );
 }
