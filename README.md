@@ -74,6 +74,15 @@ Demo token FLD: [`0x1556af603750fd504Bd044bDcd61439D1eBD71dF`](https://testnet.m
 | canonical | `0xb021a587a99dc657be5c2d013e3b5b776e07ec6c6557db90ac7fd517d5601af0` | `0x3729e78c687307975B5EEf4aBc26905d50902080` |
 | look-alike | `0xb50665c0235b2690219a63e190fc9b2f9a690e9a236691dcafd3819f063dfa8e` | `0x4620ba7142C9e88d3Ac905A6bC1f85C440C54080` |
 
+### Live demo swaps (testnet)
+
+Same trade, 0.001 MON → FLD, sent with `pnpm -F @feelock/sdk demo --chain 10143 --execute`:
+
+| Route | Pool | Quoted | Received | Tx |
+|---|---|---|---|---|
+| Naive best quote | look-alike (QuoteAwareFeeHook) | 386,995.97 FLD | 348,490.94 FLD (−9.94%) | [`0xdda717bc…`](https://testnet.monadscan.com/tx/0xdda717bcd741c4f103f7b8cc456134d53216031d17a127f8c8e59f7ee4f0643b) |
+| FeeLock guard | canonical (FeeCommitHook, hookData pins 0.30%) | 382,486.63 FLD | 382,486.63 FLD (= quote) | [`0x9b008fc9…`](https://testnet.monadscan.com/tx/0x9b008fc975676db69cc719fc9d1ae68f4e62f202525c8150c503dadc5925cece) |
+
 Monad mainnet uses only the official Uniswap v4 deployment (PoolManager `0x188d586Ddcf52439676Ca21A244753fA19F9Ea8e`); FeeLock does not deploy its own v4 copy there.
 
 ## Credits
