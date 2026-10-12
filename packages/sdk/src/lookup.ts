@@ -16,7 +16,8 @@ export type LookupFailure =
   | 'reverted'; // a quote or simulation reverted (detail has the decoded reason)
 
 export interface LookupOptions {
-  /** Pin every read to this block. Default: latest. */
+  /** Pin every read to this block. Default: latest. Get it with getBlockNumber({ cacheTime: 0 }): viem caches the
+   *  block number for seconds by default, which is many Monad blocks. */
   blockNumber?: bigint;
 }
 

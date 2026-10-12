@@ -77,7 +77,7 @@ export async function dualSimulate(
 ): Promise<DualSimulationResult> {
   let blockNumber = opts.blockNumber;
   try {
-    blockNumber ??= await client.getBlockNumber();
+    blockNumber ??= await client.getBlockNumber({ cacheTime: 0 });
   } catch (e) {
     return failed('rpc', e);
   }

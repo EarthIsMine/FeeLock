@@ -75,7 +75,7 @@ export async function quoteCandidates(
   let blockNumber = opts.blockNumber;
   if (blockNumber === undefined) {
     try {
-      blockNumber = await client.getBlockNumber();
+      blockNumber = await client.getBlockNumber({ cacheTime: 0 });
     } catch (e) {
       const quote = failed('rpc', e);
       return candidates.map((key) => ({ key, quote }));
