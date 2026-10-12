@@ -24,6 +24,10 @@ export function Explainer() {
             <strong>SDK guard</strong>: before signing, every pool is quoted and the real swap is simulated from your
             address. A gap between the two blocks the pool; a lookup it cannot finish holds the swap.
           </li>
+          <li>
+            A matching simulation is not enough on its own: the state-flip pool quotes and simulates the same 0.3%, but
+            its owner can raise the fee before your swap executes. Without a trusted cap it stays UNVERIFIED.
+          </li>
         </ul>
       </article>
       <article className="card">

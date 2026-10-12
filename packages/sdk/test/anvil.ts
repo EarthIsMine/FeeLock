@@ -63,7 +63,7 @@ export async function startAnvil(): Promise<Anvil> {
     const client = createPublicClient({ chain: anvil, transport: http(rpcUrl), pollingInterval: 100 });
     await waitForRpc(client, proc);
     const env = { ...process.env, FEELOCK_PK: DEPLOYER_KEY, FEELOCK_DEPLOYMENTS_DIR: dir };
-    for (const script of ['DeployCore', 'DeployFeeLock', 'DemoSetup']) {
+    for (const script of ['DeployCore', 'DeployFeeLock', 'DemoSetup', 'DemoStateFlip']) {
       await run('forge', ['script', `script/${script}.s.sol:${script}`, '--rpc-url', rpcUrl, '--broadcast'], {
         cwd: CONTRACTS,
         env,

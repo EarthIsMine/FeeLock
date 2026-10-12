@@ -99,6 +99,8 @@ pnpm install
 anvil                           # terminal 1
 pnpm deploy:local               # terminal 2: deploys everything, same addresses as contracts/deployments/31337.json
 pnpm -F @feelock/sdk demo       # naive vs FeeLock in the terminal
+FEELOCK_PK=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  pnpm -F @feelock/sdk demo --scenario flip --execute   # scenario 2, as anvil's default account (the hook owner)
 VITE_CHAIN_ID=31337 pnpm -F web dev
 ```
 
@@ -115,9 +117,9 @@ pnpm -F web dev                                      # http://localhost:5173, ad
 ## Tests
 
 ```sh
-cd contracts && forge test                               # 69 tests: registry, hook, fuzz + invariant, attack, E2E, router
+cd contracts && forge test                               # 74 tests: registry, hook, fuzz + invariant, both attacks, E2E, router
 FOUNDRY_PROFILE=fork forge test                          # 6 tests against the official v4 deployment on Monad mainnet
-pnpm -F @feelock/sdk test                                # 55 tests, on throwaway anvil chains deployed by the real scripts
+pnpm -F @feelock/sdk test                                # 56 tests, on throwaway anvil chains deployed by the real scripts
 ```
 
 ## Repository layout
@@ -138,7 +140,11 @@ docs/           SPEC.md, DEMO.md, SUBMISSION.md
   such pools out of the route (`UNVERIFIED`, or `FEE_MISMATCH` when the simulation shows the gap).
 - The simulation cannot see a hook that branches on block values, or one whose state changes between simulation
   and execution. For FeeCommitHook pools the cap and the pinned fee still hold; for other pools this is why they are
-  never `SAFE`.
+  never `SAFE`. Scenario 2 shows it: [`StateFlipFeeHook`](contracts/src/demo/StateFlipFeeHook.sol) quotes and simulates
+  the same 0.3% (0 bps apart, still `UNVERIFIED`), then its owner raises the fee to 10% and a naive swap at 15%
+  slippage loses ~9.7%; the same move on the FeeCommitHook pool stops at the 1% cap and the swap carrying the pinned
+  fee reverts with `FeeAboveUserLimit(10000, 3000)` ([test](contracts/test/StateFlipAttack.t.sol),
+  `pnpm -F @feelock/sdk demo --scenario flip --execute`).
 - `declareByOwner` trusts the token's current `owner()`; whoever owns it first and declares fixes the pool for good.
 - The guard handles single-hop routes (DemoSwapRouter); the judge already combines multi-hop verdicts.
 - v4 skips a hook's own callbacks when the hook calls PoolManager (`Hooks.noSelfCall`), so

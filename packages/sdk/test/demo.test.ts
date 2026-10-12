@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { stripVTControlCharacters } from 'node:util';
-import { runDemo } from '../cli/demo.js';
-import { startAnvil, TRADER_KEY, type Anvil } from './anvil.js';
+import { runDemo, runFlipScenario } from '../cli/demo.js';
+import { DEPLOYER_KEY, startAnvil, TRADER_KEY, type Anvil } from './anvil.js';
 
 let chain: Anvil;
 before(async () => {
@@ -52,4 +52,22 @@ test('--execute sends both swaps: naive receives the simulated loss, FeeLock rec
 
 test('--execute without a key is refused', async () => {
   await assert.rejects(runDemo({ client: chain.client, deployment: chain.deployment, log: () => {} }, { ...options, execute: true }), /FEELOCK_PK/);
+});
+
+test('scenario 2: the simulation agrees, the owner flips the fee, FeeCommitHook blocks the same move', async () => {
+  const lines: string[] = [];
+  const out = await runFlipScenario(
+    { client: chain.client, deployment: chain.deployment, privateKey: DEPLOYER_KEY, log: (l) => lines.push(stripVTControlCharacters(l)) },
+    { ...options, execute: true },
+  );
+  assert.equal(out.verdict, 'UNVERIFIED', 'no gap to see, but no cap either');
+  assert.equal(out.divergenceBps, 0);
+  const loss = Number(((out.quoted! - out.received!) * 10_000n) / out.quoted!);
+  assert.ok(loss >= 960 && loss <= 980, `loss ${loss} bps`);
+  assert.match(out.blocked!, /^FeeAboveUserLimit\(10000, 3000\) via beforeSwap/);
+  assert.match(lines.join('\n'), /state-flip fee reset to 0\.3%[\s\S]*canonical fee reset to 0\.3%/);
+
+  // Both fees are back where they were.
+  const again = await runFlipScenario({ client: chain.client, deployment: chain.deployment, log: () => {} }, { ...options, execute: false });
+  assert.equal(again.divergenceBps, 0);
 });

@@ -25,9 +25,21 @@
         },
         "label": "look-alike",
         "poolId": "0x63d821a9da07b8ba863186ec2507f829a713f608c7c9a0710a886b8864d1f752"
+      },
+      {
+        "key": {
+          "currency0": "0x0000000000000000000000000000000000000000",
+          "currency1": "0xd1936bBbC76761e4AB41d3522C3fa204b901D353",
+          "fee": 8388608,
+          "hooks": "0xaE0D4BdcF74f5A5210C46C64367F3871C8e00080",
+          "tickSpacing": 60
+        },
+        "label": "state-flip",
+        "poolId": "0xe5992bab27841fdbb08d616e73ad38013c03207675f15118cc31f2fab180caa8"
       }
     ],
     "seeder": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+    "stateFlipHook": "0xaE0D4BdcF74f5A5210C46C64367F3871C8e00080",
     "token": "0xd1936bBbC76761e4AB41d3522C3fa204b901D353"
   },
   "deployBlock": 1,

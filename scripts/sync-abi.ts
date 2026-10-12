@@ -23,6 +23,7 @@ const CONTRACTS: ReadonlyArray<readonly [string, string]> = [
   ['DemoSwapRouter', 'DemoSwapRouter'],
   ['DemoLaunchpad', 'DemoLaunchpad'],
   ['QuoteAwareFeeHook', 'QuoteAwareFeeHook'],
+  ['StateFlipFeeHook', 'StateFlipFeeHook'],
   ['V4Quoter', 'V4Quoter'],
   ['StateView', 'StateView'],
   ['IPoolManager', 'IPoolManager'],

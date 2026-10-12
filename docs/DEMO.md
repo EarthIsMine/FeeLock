@@ -38,6 +38,13 @@ quote; gas charged is shown.
 the fee manager raises the fee within the cap after my quote, the hook reverts the swap: FeeAboveUserLimit(10000, 3000)."
 Close on the Explainer: problem, how it works, why Monad.
 
+**Optional 6. A fee change no simulation can see (40 s).** Needs the state-flip pool on testnet
+(`forge script script/DemoStateFlip.s.sol --rpc-url monad_testnet --broadcast`). Terminal, as the hook owner:
+`pnpm -F @feelock/sdk demo --chain 10143 --scenario flip --execute`. "This third pool quotes and simulates exactly
+0.3%, zero gap, yet FeeLock still says UNVERIFIED, because nothing caps its fee. Watch: the owner raises it to 10%
+and a naive swap loses ~9.7%. The same move on the FeeCommitHook pool stops at the 1% cap, and my pinned fee makes
+the swap revert." Both fees are reset at the end.
+
 ## Terminal-only version
 
 ```sh

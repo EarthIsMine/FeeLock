@@ -87,7 +87,12 @@ test('trusted FeeCommitHook pool: SAFE only when the cap is within the user limi
 test('other hook pools are UNVERIFIED, even the canonical one', () => {
   const j = judgeHop(facts({ key: hookKey, canonical: registered(hookKey) }));
   assert.equal(j.verdict, 'UNVERIFIED');
-  assert.deepEqual(j.reasons, ['hook pool without a trusted fee cap', 'canonical pool']);
+  assert.deepEqual(j.reasons, [
+    'hook pool without a trusted fee cap: quote and simulation agree now, but nothing caps the fee before your swap executes',
+    'canonical pool',
+  ]);
+  const unsimulated = judgeHop(facts({ key: hookKey, dual: { status: 'lookup_failed', reason: 'rpc' } }));
+  assert.equal(unsimulated.verdict, 'LOOKUP_FAILED');
   assert.equal(verdict({ key: { ...hookKey, fee: 3000 } }), 'UNVERIFIED', 'a hook can take fees through deltas');
   assert.equal(
     judgeHop(facts({ key: hookKey, canonical: registered(committedKey) })).reasons.at(-1),

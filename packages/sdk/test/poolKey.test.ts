@@ -26,7 +26,7 @@ const key = (over: Partial<PoolKey> = {}): PoolKey => ({
 test('hashPoolKey matches the poolIds forge recorded on anvil', async () => {
   const { demo } = await loadDeployment(31337);
   assert.ok(demo, 'deployments/31337.json has a demo section');
-  assert.equal(demo.pools.length, 2);
+  assert.deepEqual(demo.pools.map((p) => p.label), ['canonical', 'look-alike', 'state-flip']);
   for (const pool of demo.pools) assert.equal(hashPoolKey(pool.key), pool.poolId, pool.label);
 });
 

@@ -73,7 +73,12 @@ export function judgeHop(f: HopFacts): HopJudgement {
     return { verdict: 'UNVERIFIED', reasons: withTag([`committed cap ${maxFee} pips above your limit ${f.maxFeePips}`], tag) };
   }
   const why = hasHooks(f.key) ? 'hook pool without a trusted fee cap' : 'dynamic fee without a trusted cap';
-  return { verdict: 'UNVERIFIED', reasons: withTag([why], tag) };
+  // A matching simulation proves nothing about the block that will execute the swap: the hook can change its fee first.
+  const agrees = f.dual.status === 'compared' && f.dual.divergenceBps <= f.toleranceBps;
+  const unverified = agrees
+    ? [`${why}: quote and simulation agree now, but nothing caps the fee before your swap executes`]
+    : [why];
+  return { verdict: 'UNVERIFIED', reasons: withTag(unverified, tag) };
 }
 
 function withTag(reasons: string[], tag: string | null): string[] {

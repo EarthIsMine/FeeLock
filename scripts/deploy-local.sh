@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys the full FeeLock demo (DeployCore, DeployFeeLock, DemoSetup) to a running anvil and writes
+# Deploys the full FeeLock demo (DeployCore, DeployFeeLock, DemoSetup, DemoStateFlip) to a running anvil and writes
 # contracts/deployments/31337.json. On a fresh anvil the addresses match the committed file.
 #
 #   anvil &            # in another terminal
@@ -17,7 +17,7 @@ if [ "$chain_id" != "31337" ]; then
 fi
 
 cd "$(dirname "$0")/../contracts"
-for script in DeployCore DeployFeeLock DemoSetup; do
+for script in DeployCore DeployFeeLock DemoSetup DemoStateFlip; do
   FEELOCK_PK="$ANVIL_KEY" forge script "script/$script.s.sol:$script" --rpc-url "$RPC_URL" --broadcast >/dev/null
   echo "$script done"
 done

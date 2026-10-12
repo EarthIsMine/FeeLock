@@ -2,7 +2,9 @@
  * Naive best-quote routing vs FeeLock, in the terminal.
  *
  *   pnpm -F @feelock/sdk demo [--mode naive|feelock|both] [--amount 0.001] [--slippage 1500] [--max-fee 10000]
- *                             [--chain 31337] [--execute]
+ *                             [--chain 31337] [--execute] [--scenario quote|flip]
+ *
+ * --scenario flip runs scenario 2 (StateFlipFeeHook: a fee raised between quote and execution).
  *
  * Candidates are the demo pools in contracts/deployments/<chain>.json. Without --execute nothing is sent: execution
  * is shown as a simulation from the account. --execute needs FEELOCK_PK (from the environment or the repo .env).
@@ -23,12 +25,13 @@ import {
   type PublicClient,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { demoSwapRouterAbi } from '../src/abi/index.js';
+import { demoSwapRouterAbi, feeCommitHookAbi, stateFlipFeeHookAbi } from '../src/abi/index.js';
 import { chainFor, rpcTransport, rpcUrlsFromEnv, type Deployment } from '../src/config.js';
-import { guardCandidates, type GuardResult } from '../src/guard.js';
+import { feelockGuard, guardCandidates, type GuardResult } from '../src/guard.js';
 import { loadDeployment } from '../src/node.js';
 import { hashPoolKey, type PoolKey } from '../src/poolKey.js';
 import { bestQuote, quoteCandidates } from '../src/quote.js';
+import { describeError } from '../src/revert.js';
 import { simulateSwap } from '../src/simulate.js';
 import { buildSwapCall, minAmountOut } from '../src/swap.js';
 
@@ -176,6 +179,106 @@ export async function runDemo(ctx: DemoContext, opts: DemoOptions): Promise<Demo
   return outcome;
 }
 
+export interface FlipOutcome {
+  verdict: GuardResult['verdict'];
+  divergenceBps?: number;
+  quoted?: bigint;
+  received?: bigint;
+  /** Why the same move on the FeeCommitHook pool failed. */
+  blocked?: string;
+}
+
+/**
+ * Scenario 2: a hook a simulation cannot catch. The state-flip pool charges everyone 0.3%, so quote and simulation
+ * agree; its owner then raises the fee to 10% before the swap executes. Then the same move on the canonical
+ * FeeCommitHook pool, which the cap and the pinned fee stop. Flipping needs --execute and FEELOCK_PK of the hook owner
+ * (the deployer); fees are reset afterwards.
+ */
+export async function runFlipScenario(ctx: DemoContext, opts: DemoOptions): Promise<FlipOutcome> {
+  const log = ctx.log ?? console.log;
+  const { client, deployment } = ctx;
+  const { config, demo } = deployment;
+  const flipPool = demo?.pools.find((p) => p.label === 'state-flip');
+  const canonicalPool = demo?.pools.find((p) => p.label === 'canonical');
+  if (!demo || !flipPool || !canonicalPool) throw new Error('no state-flip pool: run contracts/script/DemoStateFlip.s.sol');
+  if (opts.execute && !ctx.privateKey) throw new Error('--execute needs FEELOCK_PK');
+  const account = ctx.privateKey ? privateKeyToAccount(ctx.privateKey) : undefined;
+  const from = account?.address ?? OBSERVER;
+  const wallet = account ? createWalletClient({ account, chain: client.chain, transport: custom({ request: client.request }) }) : undefined;
+  const decimals = await client.readContract({ address: demo.token, abi: erc20Abi, functionName: 'decimals' });
+  const amount = (v: bigint) => Number(formatUnits(v, decimals)).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
+  const send = async (request: Parameters<NonNullable<typeof wallet>['writeContract']>[0]) => {
+    const hash = await wallet!.writeContract(request);
+    return client.waitForTransactionReceipt({ hash });
+  };
+  const trade = { zeroForOne: true, amountIn: opts.amountIn };
+
+  log(color('bold', 'Scenario 2: a fee change the simulation cannot see'));
+  const guard = await feelockGuard({ client, config, account: from, token: demo.token, route: [flipPool.key], maxFeePips: opts.maxFeePips, ...trade });
+  const dual = guard.hops[0]?.dual;
+  const out: FlipOutcome = { verdict: guard.verdict };
+  if (dual?.status === 'compared') {
+    out.divergenceBps = dual.divergenceBps;
+    out.quoted = dual.quoted;
+    log(`  state-flip pool: quoted ${amount(dual.quoted)}, simulated ${amount(dual.simulated)} (${dual.divergenceBps} bps apart)`);
+  }
+  log(`  FeeLock: ${color(VERDICT_COLOR[guard.verdict], guard.verdict)} · ${(guard.hops[0]?.reasons ?? guard.errors ?? []).join(' · ')}`);
+  if (!opts.execute || !wallet || !account || out.quoted === undefined) {
+    log(color('dim', '  run with --execute and FEELOCK_PK of the hook owner to flip the fee for real'));
+    return out;
+  }
+
+  const owner = await client.readContract({ address: flipPool.key.hooks, abi: stateFlipFeeHookAbi, functionName: 'owner' });
+  if (owner.toLowerCase() !== account.address.toLowerCase()) throw new Error(`FEELOCK_PK is not the hook owner ${owner}`);
+  const startFee = await client.readContract({ address: flipPool.key.hooks, abi: stateFlipFeeHookAbi, functionName: 'fee' });
+  await send({ address: flipPool.key.hooks, abi: stateFlipFeeHookAbi, functionName: 'setFee', args: [100_000], account, chain: client.chain });
+  log(`  the owner raises the fee to 10% after the quote`);
+  try {
+    const call = buildSwapCall(config, { key: flipPool.key, ...trade, minAmountOut: minAmountOut(out.quoted, opts.slippageBps) });
+    const hash = await wallet.sendTransaction({ ...call, account, chain: client.chain });
+    const receipt = await client.waitForTransactionReceipt({ hash });
+    const [event] = parseEventLogs({ abi: demoSwapRouterAbi, eventName: 'SwapExecuted', logs: receipt.logs });
+    if (receipt.status === 'success' && event) {
+      out.received = event.args.amountOut;
+      const loss = Number(((out.quoted - out.received) * 10_000n) / out.quoted);
+      log(`  a naive swap at ${pct(opts.slippageBps)} slippage receives ${amount(out.received)}: ${color('red', `${pct(loss)} less than quoted`)} (${hash})`);
+    } else {
+      log(`  the swap reverted on its slippage limit (${hash})`);
+    }
+  } finally {
+    await send({ address: flipPool.key.hooks, abi: stateFlipFeeHookAbi, functionName: 'setFee', args: [startFee], account, chain: client.chain });
+    log(color('dim', `  state-flip fee reset to ${startFee / 10_000}%`));
+  }
+
+  log(color('bold', 'The same move on the canonical FeeCommitHook pool'));
+  const safe = await feelockGuard({ client, config, account: from, token: demo.token, route: [canonicalPool.key], maxFeePips: opts.maxFeePips, ...trade });
+  const commitment = safe.hops[0]?.commitment;
+  if (safe.verdict !== 'SAFE' || commitment?.status !== 'committed' || !safe.hookData) {
+    log(`  canonical pool is ${safe.verdict}; skipping`);
+    return out;
+  }
+  if (commitment.feeManager.toLowerCase() !== account.address.toLowerCase()) {
+    log(`  FEELOCK_PK is not the fee manager ${commitment.feeManager}; skipping`);
+    return out;
+  }
+  log(`  quote pins ${commitment.currentFee / 10_000}% in hookData; the fee manager can raise it at most to the cap, ${commitment.maxFee / 10_000}%`);
+  await send({ address: canonicalPool.key.hooks, abi: feeCommitHookAbi, functionName: 'setFee', args: [canonicalPool.key, commitment.maxFee], account, chain: client.chain });
+  try {
+    const call = buildSwapCall(config, { key: canonicalPool.key, ...trade, hookData: safe.hookData, minAmountOut: 0n });
+    await client.call({ ...call, account: account.address });
+    out.blocked = 'not blocked';
+    log(color('red', '  the swap went through (unexpected)'));
+  } catch (e) {
+    out.blocked = describeError(e);
+    log(`  the swap with the pinned fee reverts: ${color('green', out.blocked)}`);
+  } finally {
+    await send({ address: canonicalPool.key.hooks, abi: feeCommitHookAbi, functionName: 'setFee', args: [canonicalPool.key, commitment.currentFee], account, chain: client.chain });
+    log(color('dim', `  canonical fee reset to ${commitment.currentFee / 10_000}%`));
+  }
+  return out;
+}
+
 async function main() {
   const envFile = fileURLToPath(new URL('../../../.env', import.meta.url));
   if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -188,8 +291,10 @@ async function main() {
       'max-fee': { type: 'string', default: '10000' },
       chain: { type: 'string', default: '31337' },
       execute: { type: 'boolean', default: false },
+      scenario: { type: 'string', default: 'quote' },
     },
   });
+  if (!['quote', 'flip'].includes(values.scenario)) throw new Error('--scenario quote|flip');
   if (!['naive', 'feelock', 'both'].includes(values.mode)) throw new Error('--mode naive|feelock|both');
   const chainId = Number(values.chain);
   const deployment = await loadDeployment(chainId);
@@ -198,7 +303,8 @@ async function main() {
     transport: rpcTransport(rpcUrlsFromEnv(chainId, process.env), { maxRequestsPerSecond: 10 }),
   });
   const pk = process.env.FEELOCK_PK?.trim();
-  await runDemo(
+  const run = values.scenario === 'flip' ? runFlipScenario : runDemo;
+  await run(
     { client, deployment, privateKey: pk ? (pk as Hex) : undefined },
     {
       mode: values.mode as DemoOptions['mode'],

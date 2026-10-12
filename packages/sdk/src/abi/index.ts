@@ -4,6 +4,7 @@ export { feeCommitHookAbi } from './FeeCommitHook.js';
 export { demoSwapRouterAbi } from './DemoSwapRouter.js';
 export { demoLaunchpadAbi } from './DemoLaunchpad.js';
 export { quoteAwareFeeHookAbi } from './QuoteAwareFeeHook.js';
+export { stateFlipFeeHookAbi } from './StateFlipFeeHook.js';
 export { v4QuoterAbi } from './V4Quoter.js';
 export { stateViewAbi } from './StateView.js';
 export { iPoolManagerAbi } from './IPoolManager.js';

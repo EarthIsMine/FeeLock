@@ -37,6 +37,9 @@ abstract contract DeploymentIO is Script {
         address attackHook;
         PoolKey canonical;
         PoolKey lookAlike;
+        // optional third demo pool (DemoStateFlip)
+        address stateFlipHook;
+        PoolKey stateFlip;
     }
 
     function _dir() internal view returns (string memory) {
@@ -74,6 +77,10 @@ abstract contract DeploymentIO is Script {
             d.canonical = _readKey(json, ".demo.pools[0].key");
             d.lookAlike = _readKey(json, ".demo.pools[1].key");
         }
+        if (vm.keyExistsJson(json, ".demo.stateFlipHook")) {
+            d.stateFlipHook = vm.parseJsonAddress(json, ".demo.stateFlipHook");
+            if (d.stateFlipHook != address(0)) d.stateFlip = _readKey(json, ".demo.pools[2].key");
+        }
     }
 
     /// @dev Writes only when the transactions are actually sent (--broadcast or --resume). A dry run would otherwise
@@ -87,11 +94,14 @@ abstract contract DeploymentIO is Script {
         demo = vm.serializeAddress("demo", "seeder", d.seeder);
         demo = vm.serializeAddress("demo", "token", d.token);
         demo = vm.serializeAddress("demo", "attackHook", d.attackHook);
-        string[] memory pools = new string[](d.token == address(0) ? 0 : 2);
-        if (d.token != address(0)) {
+        demo = vm.serializeAddress("demo", "stateFlipHook", d.stateFlipHook);
+        uint256 count = d.token == address(0) ? 0 : d.stateFlipHook == address(0) ? 2 : 3;
+        string[] memory pools = new string[](count);
+        if (count >= 2) {
             pools[0] = _poolJson("pool0", "canonical", d.canonical);
             pools[1] = _poolJson("pool1", "look-alike", d.lookAlike);
         }
+        if (count == 3) pools[2] = _poolJson("pool2", "state-flip", d.stateFlip);
         demo = vm.serializeString("demo", "pools", pools);
 
         string memory root = "root";
