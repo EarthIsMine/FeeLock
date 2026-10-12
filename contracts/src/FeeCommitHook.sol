@@ -98,7 +98,11 @@ contract FeeCommitHook is IFeeCommitHook {
         return IHooks.beforeInitialize.selector;
     }
 
-    function beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata)
+    /// @notice Charges currentFee. If hookData carries the swapper's limit, `abi.encode(uint24 userMaxFee)`, the swap
+    ///         reverts when currentFee is above it. Shorter hookData means no swapper limit. V4Quoter forwards the
+    ///         same hookData, so a quote and the swap it backs follow the same rule.
+    /// @dev A limit word with bits set above 24 fails abi.decode and reverts.
+    function beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata hookData)
         external
         view
         onlyPoolManager
@@ -109,6 +113,10 @@ contract FeeCommitHook is IFeeCommitHook {
         uint24 fee = c.currentFee;
         // setFee already keeps currentFee <= maxFee; checked again so no code path can charge above the cap.
         if (fee > c.maxFee) revert FeeAboveCommitment();
+        if (hookData.length >= 32) {
+            uint24 userMax = abi.decode(hookData, (uint24));
+            if (fee > userMax) revert FeeAboveUserLimit(fee, userMax);
+        }
         return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, fee | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 }

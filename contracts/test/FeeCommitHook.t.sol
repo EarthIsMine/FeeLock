@@ -14,6 +14,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {QuoterRevert} from "@uniswap/v4-periphery/src/libraries/QuoterRevert.sol";
 import {FeeCommitHook} from "../src/FeeCommitHook.sol";
 import {IFeeCommitHook} from "../src/interfaces/IFeeCommitHook.sol";
 
@@ -263,5 +264,76 @@ contract FeeCommitHookTest is Deployers {
         hook.setFee(key, MAX_FEE);
         uint256 quotedAfter = quoteExactIn(key, true, AMOUNT_IN, "");
         assertEq(_out(swapExactIn(key, true, AMOUNT_IN, ""), true), quotedAfter);
+    }
+
+    // ---------- swapper limit (hookData) ----------
+
+    function _limit(uint24 userMax) internal pure returns (bytes memory) {
+        return abi.encode(userMax);
+    }
+
+    function _aboveUserLimit(uint24 fee, uint24 userMax) internal view returns (bytes memory) {
+        return _wrapped(
+            IHooks.beforeSwap.selector, abi.encodeWithSelector(IFeeCommitHook.FeeAboveUserLimit.selector, fee, userMax)
+        );
+    }
+
+    /// @notice A limit at or above the fee lets the swap run and does not change the price paid.
+    function testUserLimitAtOrAboveFeeSwaps() public {
+        _commit();
+        uint256 noLimit = quoteExactIn(key, true, AMOUNT_IN, "");
+        assertEq(quoteExactIn(key, true, AMOUNT_IN, _limit(MAX_FEE)), noLimit, "limit above fee");
+        assertEq(_out(swapExactIn(key, true, AMOUNT_IN, _limit(INITIAL_FEE)), true), noLimit, "limit == fee");
+    }
+
+    function testUserLimitBelowFeeReverts() public {
+        _commit();
+        vm.expectRevert(_aboveUserLimit(INITIAL_FEE, INITIAL_FEE - 1));
+        swapExactIn(key, true, AMOUNT_IN, _limit(INITIAL_FEE - 1));
+    }
+
+    /// @notice The quoter runs the same beforeSwap with the same hookData, so the quote fails the same way.
+    function testQuoterAppliesUserLimit() public {
+        _commit();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                QuoterRevert.UnexpectedRevertBytes.selector, _aboveUserLimit(INITIAL_FEE, INITIAL_FEE - 1)
+            )
+        );
+        quoteExactIn(key, true, AMOUNT_IN, _limit(INITIAL_FEE - 1));
+    }
+
+    /// @notice The fee manager raises the fee (within the cap) between quote and swap. A swapper who pinned the quoted
+    ///         fee in hookData gets a revert instead of paying the higher fee.
+    function testFeeRaisedAfterQuoteReverts() public {
+        _commit();
+        uint24 quotedFee = hook.commitmentOf(key.toId()).currentFee;
+        quoteExactIn(key, true, AMOUNT_IN, _limit(quotedFee));
+
+        vm.prank(feeManager);
+        hook.setFee(key, MAX_FEE);
+
+        vm.expectRevert(_aboveUserLimit(MAX_FEE, quotedFee));
+        swapExactIn(key, true, AMOUNT_IN, _limit(quotedFee));
+    }
+
+    function testShortHookDataMeansNoLimit() public {
+        _commit();
+        uint256 quoted = quoteExactIn(key, true, AMOUNT_IN, "");
+        assertEq(_out(swapExactIn(key, true, AMOUNT_IN, hex"00"), true), quoted);
+    }
+
+    function testLimitWithDirtyUpperBitsReverts() public {
+        _commit();
+        // abi.decode fails without revert data; PoolManager wraps the empty reason.
+        vm.expectRevert(_wrapped(IHooks.beforeSwap.selector, ""));
+        swapExactIn(key, true, AMOUNT_IN, abi.encode(uint256(type(uint24).max) + 1));
+    }
+
+    /// @notice Extra bytes after the first word are ignored, so callers may append their own data.
+    function testLimitWithTrailingBytes() public {
+        _commit();
+        vm.expectRevert(_aboveUserLimit(INITIAL_FEE, 0));
+        swapExactIn(key, true, AMOUNT_IN, abi.encodePacked(abi.encode(uint24(0)), hex"deadbeef"));
     }
 }
