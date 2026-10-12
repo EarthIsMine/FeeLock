@@ -64,3 +64,17 @@ test('chainFor', () => {
   assert.equal(chainFor(31337).id, 31337);
   assert.throws(() => chainFor(1), /unsupported/);
 });
+
+test('rateLimited spaces requests and keeps them in order', async () => {
+  const { custom } = await import('viem');
+  const { rateLimited } = await import('../src/config.js');
+  const starts: number[] = [];
+  const base = custom({ request: async () => (starts.push(Date.now()), '0x1') });
+  const t = rateLimited(base, 20)({});
+  const t0 = Date.now();
+  await Promise.all(Array.from({ length: 5 }, () => t.request({ method: 'eth_chainId' })));
+  assert.equal(starts.length, 5);
+  assert.ok(starts[4]! - t0 >= 4 * 50 - 5, `5 requests at 20/s take >= 200ms, took ${starts[4]! - t0}`);
+  for (let i = 1; i < 5; i++) assert.ok(starts[i]! >= starts[i - 1]!);
+  assert.throws(() => rateLimited(base, 0), RangeError);
+});

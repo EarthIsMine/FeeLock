@@ -31,10 +31,23 @@ export const failed = (reason: LookupFailure, detail?: unknown): Failed => ({
 
 export const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
+/** The RPC's chain id per client: it cannot change, so it is asked once (failures are not cached). */
+const rpcChainIds = new WeakMap<object, Promise<number>>();
+
+function rpcChainId(client: PublicClient): Promise<number> {
+  let id = rpcChainIds.get(client);
+  if (!id) {
+    id = client.getChainId();
+    rpcChainIds.set(client, id);
+    id.catch(() => rpcChainIds.delete(client));
+  }
+  return id;
+}
+
 /** null when the client is on the configured chain, otherwise the failure to return. */
 export async function checkChain(client: PublicClient, config: NetworkConfig): Promise<Failed | null> {
   try {
-    const chainId = await client.getChainId();
+    const chainId = await rpcChainId(client);
     return chainId === config.chainId ? null : failed('chain', `rpc chain ${chainId}, config ${config.chainId}`);
   } catch (e) {
     return failed('rpc', e);

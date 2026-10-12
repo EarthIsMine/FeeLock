@@ -189,9 +189,39 @@ export function rpcUrlsFromEnv(chainId: number, env: Record<string, string | und
   }
 }
 
+export interface RpcTransportOptions {
+  /**
+   * Space requests to at most this many per second, per URL. Public Monad RPCs answer "requests limited to 15/sec"
+   * past that (as a JSON-RPC error with HTTP 200), which the SDK can only report as lookup_failed.
+   */
+  maxRequestsPerSecond?: number;
+}
+
 /** One URL: plain http. Several: viem fallback, trying them in order when a request fails. */
-export function rpcTransport(urls: readonly string[]): Transport {
+export function rpcTransport(urls: readonly string[], opts: RpcTransportOptions = {}): Transport {
   if (urls.length === 0) throw new Error('no RPC URL configured');
-  if (urls.length === 1) return http(urls[0]);
-  return fallback(urls.map((u) => http(u)));
+  const each = urls.map((u) => (opts.maxRequestsPerSecond ? rateLimited(http(u), opts.maxRequestsPerSecond) : http(u)));
+  return each.length === 1 ? each[0]! : fallback(each);
+}
+
+/** Wraps a transport so its requests start at least 1/perSecond seconds apart. */
+export function rateLimited(transport: Transport, perSecond: number): Transport {
+  if (!(perSecond > 0)) throw new RangeError('perSecond');
+  const gapMs = 1000 / perSecond;
+  let next = 0;
+  const slot = () => {
+    const now = Date.now();
+    const at = Math.max(now, next);
+    next = at + gapMs;
+    return at - now;
+  };
+  return (params) => {
+    const t = transport(params);
+    const request: typeof t.request = async (args, options) => {
+      const wait = slot();
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      return t.request(args, options);
+    };
+    return { ...t, request };
+  };
 }

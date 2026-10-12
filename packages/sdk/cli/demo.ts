@@ -195,7 +195,7 @@ async function main() {
   const deployment = await loadDeployment(chainId);
   const client = createPublicClient({
     chain: chainFor(chainId),
-    transport: rpcTransport(rpcUrlsFromEnv(chainId, process.env)),
+    transport: rpcTransport(rpcUrlsFromEnv(chainId, process.env), { maxRequestsPerSecond: 10 }),
   });
   const pk = process.env.FEELOCK_PK?.trim();
   await runDemo(
