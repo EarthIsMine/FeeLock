@@ -60,7 +60,7 @@ export async function startAnvil(): Promise<Anvil> {
     await rm(`${CONTRACTS}${dir}`, { recursive: true, force: true });
   };
   try {
-    const client = createPublicClient({ chain: anvil, transport: http(rpcUrl) });
+    const client = createPublicClient({ chain: anvil, transport: http(rpcUrl), pollingInterval: 100 });
     await waitForRpc(client, proc);
     const env = { ...process.env, FEELOCK_PK: DEPLOYER_KEY, FEELOCK_DEPLOYMENTS_DIR: dir };
     for (const script of ['DeployCore', 'DeployFeeLock', 'DemoSetup']) {

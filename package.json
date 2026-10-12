@@ -10,7 +10,8 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "sync-abi": "tsx scripts/sync-abi.ts"
+    "sync-abi": "tsx scripts/sync-abi.ts",
+    "deploy:local": "bash scripts/deploy-local.sh"
   },
   "devDependencies": {
     "@types/node": "26.6.5",
