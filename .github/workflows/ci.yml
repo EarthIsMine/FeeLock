@@ -11,8 +11,9 @@ on:
         type: boolean
         default: false
 
+# Per event, so a manual run (e.g. the fork job) does not cancel the push run on the same branch.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -43,7 +44,7 @@ jobs:
         run: forge test
 
   typescript:
-    name: SDK and web
+    name: SDK, web and worker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -69,6 +70,10 @@ jobs:
         run: pnpm -F @feelock/sdk test
       - name: Web build
         run: pnpm -F web build
+      - name: Worker typecheck and tests (anvil)
+        run: |
+          pnpm -F worker typecheck
+          pnpm -F worker test
 
   fork:
     name: Monad mainnet fork

@@ -14,8 +14,12 @@ import { useWallet, type WalletState } from './hooks/useWallet';
 import { chain, CHAIN_ID } from './lib/chain';
 import { deployment } from './lib/deployments';
 import { short } from './lib/format';
+import { loadCandidates, type CandidateSource } from './lib/pools';
 import { snapshot } from './lib/snapshot';
+import type { CandidatePool } from '@feelock/sdk';
 import { tokenMeta, type TokenMeta } from './lib/token';
+
+const NO_POOLS: CandidatePool[] = [];
 
 /** The swapper's fee limit: 1%, matching the demo pool's committed cap. */
 const MAX_FEE_PIPS = 10_000;
@@ -81,7 +85,11 @@ export default function App() {
   const [token, setToken] = useState<TokenMeta>();
   const [last, setLast] = useState<SwapStatus>({ step: 'idle' });
   const amountIn = useMemo(() => parseAmount(amountText), [amountText]);
-  const feelock = useFeeLock(amountIn, guardOn, wallet.ready ? wallet.account : undefined, MAX_FEE_PIPS);
+  const [candidates, setCandidates] = useState<{ pools: CandidatePool[]; source: CandidateSource; note?: string }>();
+  useEffect(() => {
+    void loadCandidates().then(setCandidates);
+  }, []);
+  const feelock = useFeeLock(amountIn, guardOn, wallet.ready ? wallet.account : undefined, MAX_FEE_PIPS, candidates?.pools ?? NO_POOLS);
   const route = guardOn ? feelock.bestSafe : feelock.bestQuote;
   // Fall back to the recorded snapshot only when live data is really unavailable, and say so.
   const snapshotReason = forceSnapshot
@@ -127,6 +135,12 @@ export default function App() {
             <section className="card">
               <h2>
                 Pools for MON → {symbol}
+                {candidates && (
+                  <span className="muted small" title={candidates.note}>
+                    {' '}
+                    · from {candidates.source === 'indexer' ? 'the indexer' : 'the deployments file'}
+                  </span>
+                )}
                 {feelock.loading && <span className="muted small"> · updating</span>}
               </h2>
               <PoolList

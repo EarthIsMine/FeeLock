@@ -6,6 +6,7 @@ export * from './judge.js';
 export * from './lookup.js';
 export * from './monad.js';
 export * from './poolKey.js';
+export * from './pools.js';
 export * from './quote.js';
 export * from './registry.js';
 export * from './revert.js';

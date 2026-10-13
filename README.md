@@ -122,12 +122,29 @@ pnpm -F web dev                                      # http://localhost:5173, ad
 
 `?snapshot` shows the recorded testnet snapshot; the page also falls back to it, labelled, when the RPC is down.
 
+**Pool indexer (optional):** without it, candidate pools come from the deployments file.
+
+```sh
+pnpm -F worker serve --chain 10143        # scans PoolManager Initialize + registry PoolDeclared, classifies, serves
+curl 'localhost:8787/pools?token=0x1556af603750fd504Bd044bDcd61439D1eBD71dF'
+VITE_POOLS_API=http://localhost:8787 pnpm -F web dev
+pnpm -F @feelock/sdk demo --chain 10143 --pools-api http://localhost:8787
+```
+
+Each pool is classified `static`, `fee-committed`, `unverified` or `unknown` (a failed lookup), with a `canonical`
+flag. Monad's public RPCs limit `eth_getLogs` to 100 blocks, so the worker scans in 100-block chunks (`--chunk`),
+halves a chunk the RPC refuses, and checkpoints to `data/pools.<chainId>.json` so a long first scan resumes (the
+full testnet history since the deploy block, ~214k blocks, took 20 minutes on the public RPC; later passes only read
+new blocks). The
+classification is a hint only: the guard still checks every pool before signing.
+
 ## Tests
 
 ```sh
 cd contracts && forge test                               # 74 tests: registry, hook, fuzz + invariant, both attacks, E2E, router
 FOUNDRY_PROFILE=fork forge test                          # 6 tests against the official v4 deployment on Monad mainnet
-pnpm -F @feelock/sdk test                                # 60 tests, on throwaway anvil chains deployed by the real scripts
+pnpm -F @feelock/sdk test                                # 62 tests, on throwaway anvil chains deployed by the real scripts
+pnpm -F worker test                                      # 4 tests: indexing, resume, chunk halving, HTTP API
 FEELOCK_FORK_TESTS=1 pnpm -F @feelock/sdk test           # + 4 swaps through the official Universal Router on a mainnet fork
 ```
 
@@ -140,6 +157,7 @@ pull request, plus the ABI sync check and the web build; the fork test runs on d
 contracts/      Foundry: CanonicalPoolRegistry, FeeCommitHook, demo contracts, deploy scripts, deployments/
 packages/sdk/   @feelock/sdk: lookups, quote + simulation, judge, feelockGuard, CLI demo (cli/demo.ts)
 apps/web/       Vite + React app: pool list, guard toggle, swap, verdicts, receipts, snapshot fallback
+apps/worker/    Pool indexer: Initialize + PoolDeclared logs → classified pools, data/pools.<chainId>.json, HTTP API
 scripts/        sync-abi.ts (forge out → SDK ABIs), deploy-local.sh
 docs/           SPEC.md, DEMO.md, SUBMISSION.md
 ```

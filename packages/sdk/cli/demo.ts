@@ -5,6 +5,7 @@
  *                             [--chain 31337] [--execute] [--scenario quote|flip]
  *
  * --scenario flip runs scenario 2 (StateFlipFeeHook: a fee raised between quote and execution).
+ * --pools-api <url> (or FEELOCK_POOLS_API) takes candidates from the apps/worker indexer, else the deployments file.
  *
  * Candidates are the demo pools in contracts/deployments/<chain>.json. Without --execute nothing is sent: execution
  * is shown as a simulation from the account. --execute needs FEELOCK_PK (from the environment or the repo .env).
@@ -30,6 +31,7 @@ import { chainFor, rpcTransport, rpcUrlsFromEnv, type Deployment } from '../src/
 import { feelockGuard, guardCandidates, type GuardResult } from '../src/guard.js';
 import { loadDeployment } from '../src/node.js';
 import { hashPoolKey, type PoolKey } from '../src/poolKey.js';
+import { fetchIndexedPools, type CandidatePool } from '../src/pools.js';
 import { bestQuote, quoteCandidates } from '../src/quote.js';
 import { describeError } from '../src/revert.js';
 import { simulateSwap } from '../src/simulate.js';
@@ -49,6 +51,8 @@ export interface DemoOptions {
 export interface DemoContext {
   client: PublicClient;
   deployment: Deployment;
+  /** Candidate pools; default: the demo pools in the deployments file. */
+  pools?: CandidatePool[];
   /** Required for execute. */
   privateKey?: Hex;
   log?: (line: string) => void;
@@ -80,8 +84,9 @@ export async function runDemo(ctx: DemoContext, opts: DemoOptions): Promise<Demo
   ]);
   const amount = (v: bigint) => Number(formatUnits(v, decimals)).toLocaleString('en-US', { maximumFractionDigits: 2 });
   const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
-  const label = (key: PoolKey) => demo.pools.find((p) => p.poolId === hashPoolKey(key))?.label ?? hashPoolKey(key).slice(0, 10);
-  const candidates = demo.pools.map((p) => p.key);
+  const pools = ctx.pools ?? demo.pools.map((p) => ({ key: p.key, poolId: p.poolId, label: p.label }));
+  const label = (key: PoolKey) => pools.find((p) => p.poolId === hashPoolKey(key))?.label ?? hashPoolKey(key).slice(0, 10);
+  const candidates = pools.map((p) => p.key);
   const trade = { zeroForOne: true, amountIn: opts.amountIn };
   const outcome: DemoOutcome = {};
 
@@ -292,6 +297,7 @@ async function main() {
       chain: { type: 'string', default: '31337' },
       execute: { type: 'boolean', default: false },
       scenario: { type: 'string', default: 'quote' },
+      'pools-api': { type: 'string', default: process.env.FEELOCK_POOLS_API ?? '' },
     },
   });
   if (!['quote', 'flip'].includes(values.scenario)) throw new Error('--scenario quote|flip');
@@ -303,9 +309,20 @@ async function main() {
     transport: rpcTransport(rpcUrlsFromEnv(chainId, process.env), { maxRequestsPerSecond: 10 }),
   });
   const pk = process.env.FEELOCK_PK?.trim();
+  let pools: CandidatePool[] | undefined;
+  const api = values['pools-api'];
+  if (api && deployment.demo) {
+    const demoLabel = (id: Hex) => deployment.demo?.pools.find((p) => p.poolId === id)?.label;
+    try {
+      pools = await fetchIndexedPools(api, chainId, deployment.demo.token, { labelOf: demoLabel });
+      console.log(color('dim', `candidates from the indexer at ${api}: ${pools.length} pools`));
+    } catch (e) {
+      console.log(color('yellow', `indexer unavailable (${e instanceof Error ? e.message : e}); using the deployments file`));
+    }
+  }
   const run = values.scenario === 'flip' ? runFlipScenario : runDemo;
   await run(
-    { client, deployment, privateKey: pk ? (pk as Hex) : undefined },
+    { client, deployment, privateKey: pk ? (pk as Hex) : undefined, ...(pools?.length ? { pools } : {}) },
     {
       mode: values.mode as DemoOptions['mode'],
       amountIn: parseEther(values.amount),

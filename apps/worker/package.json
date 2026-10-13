@@ -1,0 +1,22 @@
+{
+  "name": "worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Indexes Uniswap v4 pools for a FeeLock deployment and serves their classification.",
+  "scripts": {
+    "scan": "tsx src/index.ts scan",
+    "serve": "tsx src/index.ts serve",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
+  },
+  "dependencies": {
+    "@feelock/sdk": "workspace:*",
+    "viem": "2.57.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,4 +1,5 @@
 import {
+  type CandidatePool,
   getCanonicalPool,
   getCommitment,
   hashPoolKey,
@@ -41,19 +42,25 @@ export interface FeeLockState {
 
 const demo = deployment?.demo;
 const config = deployment?.config;
-const candidates = demo?.pools.map((p) => p.key) ?? [];
-const labelOf = (key: PoolKey) => demo?.pools.find((p) => p.poolId === hashPoolKey(key))?.label ?? hashPoolKey(key).slice(0, 10);
 
 /**
  * Quotes every demo pool and reads its canonical/commitment status; with FeeLock on, also runs the guard on each.
  * Re-runs when the inputs change (debounced) and every REFRESH_MS.
  */
-export function useFeeLock(amountIn: bigint | undefined, guardOn: boolean, account: Address | undefined, maxFeePips: number): FeeLockState {
+export function useFeeLock(
+  amountIn: bigint | undefined,
+  guardOn: boolean,
+  account: Address | undefined,
+  maxFeePips: number,
+  pools: readonly CandidatePool[],
+): FeeLockState {
   const [state, setState] = useState<FeeLockState>({ rows: [], loading: false });
   const run = useRef(0);
 
   useEffect(() => {
-    if (!config || !demo || !amountIn || amountIn <= 0n) {
+    const candidates = pools.map((p) => p.key);
+    const labelOf = (key: PoolKey) => pools.find((p) => p.poolId === hashPoolKey(key))?.label ?? hashPoolKey(key).slice(0, 10);
+    if (!config || !demo || !amountIn || amountIn <= 0n || candidates.length === 0) {
       setState({ rows: [], loading: false });
       return;
     }
@@ -130,7 +137,7 @@ export function useFeeLock(amountIn: bigint | undefined, guardOn: boolean, accou
       clearTimeout(timer);
       run.current++;
     };
-  }, [amountIn, guardOn, account, maxFeePips]);
+  }, [amountIn, guardOn, account, maxFeePips, pools]);
 
   return state;
 }
