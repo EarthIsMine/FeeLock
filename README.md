@@ -184,6 +184,12 @@ Same trade, 0.001 MON → FLD, sent with `pnpm -F @feelock/sdk demo --chain 1014
 | Naive best quote | look-alike (QuoteAwareFeeHook) | 386,995.97 FLD | 348,490.94 FLD (−9.94%) | [`0xdda717bc…`](https://testnet.monadscan.com/tx/0xdda717bcd741c4f103f7b8cc456134d53216031d17a127f8c8e59f7ee4f0643b) |
 | FeeLock guard | canonical (FeeCommitHook, hookData pins 0.30%) | 382,486.63 FLD | 382,486.63 FLD (= quote) | [`0x9b008fc9…`](https://testnet.monadscan.com/tx/0x9b008fc975676db69cc719fc9d1ae68f4e62f202525c8150c503dadc5925cece) |
 
+**Scenario 2** (`demo --chain 10143 --scenario flip --execute`): the state-flip pool quoted and simulated the same
+370,167.84 FLD (0 bps apart, FeeLock: `UNVERIFIED`). The owner then raised its fee to 10%
+([tx](https://testnet.monadscan.com/tx/0x5c71fe354adc4e94751504d8849d591d97f2bc675d80a6ae4c58406092393c8e)), and a naive swap at 15% slippage received **334,171.13 FLD (−9.72%)**
+([tx](https://testnet.monadscan.com/tx/0x6bc40ec5588e3b1a7d04b1db3c07c070f361dc18d15c94f37cad87f36ba054d4)); the fee was reset afterwards ([tx](https://testnet.monadscan.com/tx/0x3c7d7e02abefe4e2eecf7d34fe14f37dd473b317957c0459063d10bd57664616)). The same move on the canonical
+pool stopped at its 1% cap, and the swap carrying the pinned 0.3% fee reverted with `FeeAboveUserLimit(10000, 3000)`.
+
 Monad mainnet uses only the official Uniswap v4 deployment (PoolManager `0x188d586Ddcf52439676Ca21A244753fA19F9Ea8e`); FeeLock does not deploy its own v4 copy there.
 
 ## Credits
