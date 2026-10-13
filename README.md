@@ -165,6 +165,7 @@ Monad testnet (10143), deployed from block 70435253. Full record: [contracts/dep
 | DemoLaunchpad | [`0x7952f6ca5e2491ee23b0e443a5a3a8c60b27bdbf`](https://testnet.monadscan.com/address/0x7952f6ca5e2491ee23b0e443a5a3a8c60b27bdbf) | [`0x187a38d0…`](https://testnet.monadscan.com/tx/0x187a38d0d74c02777b061757fe2c71164f04910358cbe8efc3d232fae9d0758a) |
 | PoolSeeder | [`0x1626180ddee783d675035b924bda07705c5f89b5`](https://testnet.monadscan.com/address/0x1626180ddee783d675035b924bda07705c5f89b5) | [`0x6a8e55ab…`](https://testnet.monadscan.com/tx/0x6a8e55ab1112b6d937a57315dd031795fe7df012fcbb97c86f818665b4025d2d) |
 | QuoteAwareFeeHook (attack demo) | [`0x4620ba7142c9e88d3ac905a6bc1f85c440c54080`](https://testnet.monadscan.com/address/0x4620ba7142c9e88d3ac905a6bc1f85c440c54080) | [`0x17cedea2…`](https://testnet.monadscan.com/tx/0x17cedea27a052c9dbe129d205a733c98e088e9f0d8de3d891eaaacc808f6bd17) |
+| StateFlipFeeHook (scenario 2 demo) | [`0xe9fed65ca6691bd5b08f92c92c3a634f802e0080`](https://testnet.monadscan.com/address/0xe9fed65ca6691bd5b08f92c92c3a634f802e0080) | [`0x5d705f83…`](https://testnet.monadscan.com/tx/0x5d705f837496d549c4578d2d6fa7f97730e01c911126834a817c5600e0925750) |
 
 Demo token FLD: [`0x1556af603750fd504Bd044bDcd61439D1eBD71dF`](https://testnet.monadscan.com/address/0x1556af603750fd504Bd044bDcd61439D1eBD71dF). Pools:
 
@@ -172,6 +173,7 @@ Demo token FLD: [`0x1556af603750fd504Bd044bDcd61439D1eBD71dF`](https://testnet.m
 |---|---|---|
 | canonical | `0xb021a587a99dc657be5c2d013e3b5b776e07ec6c6557db90ac7fd517d5601af0` | `0x3729e78c687307975B5EEf4aBc26905d50902080` |
 | look-alike | `0xb50665c0235b2690219a63e190fc9b2f9a690e9a236691dcafd3819f063dfa8e` | `0x4620ba7142C9e88d3Ac905A6bC1f85C440C54080` |
+| state-flip | `0x35c2f47a9fd83f7d3e9568516a33bd562f45c970fa67de43d94ccf40422e1ca8` | `0xe9FeD65ca6691BD5b08f92C92c3A634f802e0080` |
 
 ### Live demo swaps (testnet)
 
