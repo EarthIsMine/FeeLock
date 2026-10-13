@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      fork:
+        description: Also run the Monad mainnet fork test (public RPC)
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FOUNDRY_VERSION: v1.8.5
+
+jobs:
+  contracts:
+    name: Contracts (forge)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+      - name: Format
+        working-directory: contracts
+        run: forge fmt --check src test script
+      - name: Build
+        working-directory: contracts
+        run: forge build --sizes
+      - name: Test
+        working-directory: contracts
+        run: forge test
+
+  typescript:
+    name: SDK and web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      # The SDK tests start anvil and deploy with the real forge scripts.
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: ABIs match the contracts
+        run: |
+          (cd contracts && forge build)
+          pnpm sync-abi --check
+      - name: SDK typecheck
+        run: pnpm -F @feelock/sdk typecheck
+      - name: SDK tests (anvil)
+        run: pnpm -F @feelock/sdk test
+      - name: Web build
+        run: pnpm -F web build
+
+  fork:
+    name: Monad mainnet fork
+    if: github.event_name == 'workflow_dispatch' && inputs.fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+      - name: Fork test against the official v4 deployment
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: fork
+          MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL || 'https://rpc.monad.xyz' }}
+        run: forge test

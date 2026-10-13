@@ -1,5 +1,7 @@
 # FeeLock
 
+[![CI](https://github.com/EarthIsMine/FeeLock/actions/workflows/ci.yml/badge.svg)](https://github.com/EarthIsMine/FeeLock/actions/workflows/ci.yml)
+
 > The fee you see in the quote is the fee you pay.
 
 A Uniswap v4 hook can charge a different fee on every swap, including a low one when a quoter asks and a high one
@@ -121,6 +123,9 @@ cd contracts && forge test                               # 74 tests: registry, h
 FOUNDRY_PROFILE=fork forge test                          # 6 tests against the official v4 deployment on Monad mainnet
 pnpm -F @feelock/sdk test                                # 56 tests, on throwaway anvil chains deployed by the real scripts
 ```
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs all of the above except the fork test on every push and
+pull request, plus the ABI sync check and the web build; the fork test runs on demand (Actions → CI → Run workflow).
 
 ## Repository layout
 
