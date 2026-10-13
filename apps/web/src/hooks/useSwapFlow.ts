@@ -261,10 +261,13 @@ export function useSwapFlow(o: Options) {
       });
       step(id, 'sign', { status: 'done', detail: 'Signed' });
       step(id, 'done', { status: 'active', detail: 'Waiting for the block…' });
-      const [receipt, tx] = await Promise.all([publicClient.waitForTransactionReceipt({ hash }), publicClient.getTransaction({ hash })]);
+      // Receipt first: right after sending, the RPC may not know the transaction yet, and getTransaction throws.
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      // The limit is only for display; Monad bills the whole limit, so gasUsed is the fallback.
+      const sentGas = await publicClient.getTransaction({ hash }).then((tx) => tx.gas, () => gasLimit ?? receipt.gasUsed);
       const base = {
         hash,
-        gasLimit: tx.gas,
+        gasLimit: sentGas,
         gasCharged: receipt.gasUsed * receipt.effectiveGasPrice,
         blockNumber: receipt.blockNumber,
       };
