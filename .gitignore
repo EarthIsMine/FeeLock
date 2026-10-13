@@ -27,4 +27,4 @@ contracts/deployments/.test-*/
 contracts/broadcast/**/*.lock
 
 # Pitch materials (kept out of the public repo)
-FeeLock Pitch Deck*.pptx
+FeeLock Pitch*

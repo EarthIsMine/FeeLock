@@ -34,7 +34,7 @@ card: the best quote looks ~4k FLD better but really pays ~34k FLD less.
 hookData, and sets a tight gas limit, because Monad bills the whole limit." After the receipt: received equals the
 quote; gas charged is shown.
 
-**5. The backstop (30 s).** Terminal: `cd contracts && forge test --mt testFeeRaiseAfterQuoteReverts -vv`. "Even if
+**5. The backstop (30 s).** Terminal: `cd contracts && forge test --mc FeeLockE2E --mt testFeeRaiseAfterQuoteReverts -vvvv | grep -E "FeeAboveUserLimit|PASS"`. "Even if
 the fee manager raises the fee within the cap after my quote, the hook reverts the swap: FeeAboveUserLimit(10000, 3000)."
 Close on the Explainer: problem, how it works, why Monad.
 
