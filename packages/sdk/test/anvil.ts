@@ -1,6 +1,6 @@
 // Test harness: a throwaway anvil chain with the full FeeLock demo deployed by the real forge scripts.
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -37,7 +37,7 @@ async function freePort(): Promise<number> {
 }
 
 async function waitForRpc(client: PublicClient, proc: ChildProcess): Promise<void> {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 300; i++) {
     if (proc.exitCode !== null) throw new Error(`anvil exited with ${proc.exitCode}`);
     try {
       await client.getChainId();
@@ -49,11 +49,23 @@ async function waitForRpc(client: PublicClient, proc: ChildProcess): Promise<voi
   throw new Error('anvil did not start');
 }
 
-/** Starts anvil on a free port and runs DeployCore, DeployFeeLock and DemoSetup against it. */
-export async function startAnvil(): Promise<Anvil> {
+export interface AnvilOptions {
+  /** Fork this RPC instead of starting an empty chain. */
+  forkUrl?: string;
+  /** Forge scripts to run, in order. Default: the full local demo. */
+  scripts?: string[];
+  /** deployments/<chainId>.json written before the scripts run (e.g. the official v4 addresses on a fork). */
+  seed?: Record<string, unknown>;
+}
+
+const LOCAL_DEMO = ['DeployCore', 'DeployFeeLock', 'DemoSetup', 'DemoStateFlip'];
+
+/** Starts anvil on a free port (optionally forking a chain) and deploys with the real forge scripts. */
+export async function startAnvil(opts: AnvilOptions = {}): Promise<Anvil> {
   const port = await freePort();
   const rpcUrl = `http://127.0.0.1:${port}`;
-  const proc = spawn('anvil', ['--port', String(port), '--silent'], { stdio: 'ignore' });
+  const args = ['--port', String(port), '--silent', ...(opts.forkUrl ? ['--fork-url', opts.forkUrl] : [])];
+  const proc = spawn('anvil', args, { stdio: 'ignore' });
   const dir = `deployments/.test-${port}`;
   const stop = async () => {
     proc.kill();
@@ -61,16 +73,28 @@ export async function startAnvil(): Promise<Anvil> {
   };
   try {
     const client = createPublicClient({ chain: anvil, transport: http(rpcUrl), pollingInterval: 100 });
+    // A fork's first RPC answer can take a while: it fetches the fork block.
     await waitForRpc(client, proc);
-    const env = { ...process.env, FEELOCK_PK: DEPLOYER_KEY, FEELOCK_DEPLOYMENTS_DIR: dir };
-    for (const script of ['DeployCore', 'DeployFeeLock', 'DemoSetup', 'DemoStateFlip']) {
+    // Broadcast logs go to the throwaway directory too: a fork of chain 143 must not leave mainnet-looking logs behind.
+    const env = {
+      ...process.env,
+      FEELOCK_PK: DEPLOYER_KEY,
+      FEELOCK_DEPLOYMENTS_DIR: dir,
+      FOUNDRY_BROADCAST: `${CONTRACTS}${dir}/broadcast`,
+    };
+    const chainId = await client.getChainId();
+    if (opts.seed) {
+      await mkdir(`${CONTRACTS}${dir}`, { recursive: true });
+      await writeFile(`${CONTRACTS}${dir}/${chainId}.json`, JSON.stringify({ ...opts.seed, chainId }));
+    }
+    for (const script of opts.scripts ?? LOCAL_DEMO) {
       await run('forge', ['script', `script/${script}.s.sol:${script}`, '--rpc-url', rpcUrl, '--broadcast'], {
         cwd: CONTRACTS,
         env,
         maxBuffer: 64 * 1024 * 1024,
       });
     }
-    const deployment = await loadDeployment(31337, `${CONTRACTS}${dir}`);
+    const deployment = await loadDeployment(chainId, `${CONTRACTS}${dir}`);
     const deployer = createWalletClient({ chain: anvil, transport: http(rpcUrl), account: privateKeyToAccount(DEPLOYER_KEY) });
     return { rpcUrl, client, deployer, deployment, stop };
   } catch (e) {

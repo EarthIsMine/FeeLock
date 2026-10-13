@@ -73,10 +73,8 @@ abstract contract DeploymentIO is Script {
         d.seeder = vm.parseJsonAddress(json, ".demo.seeder");
         d.token = vm.parseJsonAddress(json, ".demo.token");
         d.attackHook = vm.parseJsonAddress(json, ".demo.attackHook");
-        if (d.token != address(0)) {
-            d.canonical = _readKey(json, ".demo.pools[0].key");
-            d.lookAlike = _readKey(json, ".demo.pools[1].key");
-        }
+        if (d.token != address(0)) d.canonical = _readKey(json, ".demo.pools[0].key");
+        if (d.attackHook != address(0)) d.lookAlike = _readKey(json, ".demo.pools[1].key");
         if (vm.keyExistsJson(json, ".demo.stateFlipHook")) {
             d.stateFlipHook = vm.parseJsonAddress(json, ".demo.stateFlipHook");
             if (d.stateFlipHook != address(0)) d.stateFlip = _readKey(json, ".demo.pools[2].key");
@@ -95,12 +93,12 @@ abstract contract DeploymentIO is Script {
         demo = vm.serializeAddress("demo", "token", d.token);
         demo = vm.serializeAddress("demo", "attackHook", d.attackHook);
         demo = vm.serializeAddress("demo", "stateFlipHook", d.stateFlipHook);
-        uint256 count = d.token == address(0) ? 0 : d.stateFlipHook == address(0) ? 2 : 3;
+        // Pools in a fixed order: canonical, then look-alike and state-flip when deployed (not on Monad mainnet).
+        uint256 count =
+            d.token == address(0) ? 0 : d.attackHook == address(0) ? 1 : d.stateFlipHook == address(0) ? 2 : 3;
         string[] memory pools = new string[](count);
-        if (count >= 2) {
-            pools[0] = _poolJson("pool0", "canonical", d.canonical);
-            pools[1] = _poolJson("pool1", "look-alike", d.lookAlike);
-        }
+        if (count >= 1) pools[0] = _poolJson("pool0", "canonical", d.canonical);
+        if (count >= 2) pools[1] = _poolJson("pool1", "look-alike", d.lookAlike);
         if (count == 3) pools[2] = _poolJson("pool2", "state-flip", d.stateFlip);
         demo = vm.serializeString("demo", "pools", pools);
 

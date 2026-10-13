@@ -87,3 +87,15 @@ jobs:
           FOUNDRY_PROFILE: fork
           MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL || 'https://rpc.monad.xyz' }}
         run: forge test
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: SDK swaps through the official Universal Router (anvil fork)
+        working-directory: packages/sdk
+        env:
+          FEELOCK_FORK_TESTS: '1'
+          MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL || 'https://rpc.monad.xyz' }}
+        run: npx tsx --test test/universalRouter.fork.test.ts

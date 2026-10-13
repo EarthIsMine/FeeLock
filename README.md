@@ -82,8 +82,14 @@ as "not registered" or "not committed".
 - **Public RPC limits.** Monad's public RPC caps clients at 15 requests/sec and answers with a JSON-RPC error, not an
   HTTP 429. The SDK transport spaces requests (`maxRequestsPerSecond`) so the guard does not fail closed for that
   reason.
-- **Mainnet stays official.** On Monad mainnet FeeLock targets the official Uniswap v4 deployment; the fork test runs
-  against it (`FOUNDRY_PROFILE=fork forge test`).
+- **Mainnet stays official.** On Monad mainnet FeeLock targets the official Uniswap v4 deployment
+  (`MONAD_MAINNET_V4` in the SDK); the fork test runs against it (`FOUNDRY_PROFILE=fork forge test`). The SDK builds
+  Universal Router `V4_SWAP` calldata (`buildUniversalRouterSwapCall`) with the swapper's pinned fee in `hookData`.
+  Monad has Universal Routers with two V4Router param layouts: 2.1.x expects `minHopPriceX36`, the router listed first
+  decodes the older five fields and silently misreads the newer ones, so each router is paired with its layout
+  (`MONAD_MAINNET_UNIVERSAL_ROUTERS`). On a mainnet fork, a swap through the official router with SDK calldata pays
+  exactly the official quoter's quote, and a fee raised after the quote reverts it
+  (`FEELOCK_FORK_TESTS=1 pnpm -F @feelock/sdk test`).
 
 ## Quick start
 
@@ -121,7 +127,8 @@ pnpm -F web dev                                      # http://localhost:5173, ad
 ```sh
 cd contracts && forge test                               # 74 tests: registry, hook, fuzz + invariant, both attacks, E2E, router
 FOUNDRY_PROFILE=fork forge test                          # 6 tests against the official v4 deployment on Monad mainnet
-pnpm -F @feelock/sdk test                                # 56 tests, on throwaway anvil chains deployed by the real scripts
+pnpm -F @feelock/sdk test                                # 60 tests, on throwaway anvil chains deployed by the real scripts
+FEELOCK_FORK_TESTS=1 pnpm -F @feelock/sdk test           # + 4 swaps through the official Universal Router on a mainnet fork
 ```
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs all of the above except the fork test on every push and
