@@ -141,7 +141,7 @@ classification is a hint only: the guard still checks every pool before signing.
 ## Tests
 
 ```sh
-cd contracts && forge test                               # 74 tests: registry, hook, fuzz + invariant, both attacks, E2E, router
+cd contracts && forge test                               # 77 tests: registry, hook, fuzz + invariant, both attacks, flash manipulation, E2E, router
 FOUNDRY_PROFILE=fork forge test                          # 6 tests against the official v4 deployment on Monad mainnet
 pnpm -F @feelock/sdk test                                # 62 tests, on throwaway anvil chains deployed by the real scripts
 pnpm -F worker test                                      # 4 tests: indexing, resume, chunk halving, HTTP API
@@ -175,6 +175,15 @@ docs/           SPEC.md, DEMO.md, SUBMISSION.md
   slippage loses ~9.7%; the same move on the FeeCommitHook pool stops at the 1% cap and the swap carrying the pinned
   fee reverts with `FeeAboveUserLimit(10000, 3000)` ([test](contracts/test/StateFlipAttack.t.sol),
   `pnpm -F @feelock/sdk demo --scenario flip --execute`).
+- **No spot state.** v4's flash accounting only settles balances when `unlock` returns, so inside one callback anyone
+  can move a pool's price with capital they do not have, call a hook, move it back and settle. Hooks that judge by
+  spot price or balances can be fooled that way. FeeCommitHook reads none: the fee comes from the stored commitment,
+  checked against the cap fixed at creation and the swapper's pinned fee, and only the fee manager can change it.
+  The registry gates on CREATE2/`owner()` issuers and on "initialized", which cannot be undone.
+  [`FlashManipulation.t.sol`](contracts/test/FlashManipulation.t.sol) crashes the pool's price to 1/120 with an
+  unpaid swap inside one callback: every swap still pays exactly the committed 0.3%, a pinned lower fee still
+  reverts, and the commitment is unchanged afterwards. A custom fee manager that reads spot state could be fooled,
+  but only within `[0, maxFee]`, and a pinned fee still stops it.
 - `declareByOwner` trusts the token's current `owner()`; whoever owns it first and declares fixes the pool for good.
 - The guard handles single-hop routes (DemoSwapRouter); the judge already combines multi-hop verdicts.
 - v4 skips a hook's own callbacks when the hook calls PoolManager (`Hooks.noSelfCall`), so
