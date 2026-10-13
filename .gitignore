@@ -25,3 +25,6 @@ contracts/deployments/.test-*/
 
 # forge broadcast lock files
 contracts/broadcast/**/*.lock
+
+# Pitch materials (kept out of the public repo)
+FeeLock Pitch Deck*.pptx
