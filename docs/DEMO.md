@@ -7,7 +7,7 @@ About 3 minutes. Everything runs on Monad testnet against the contracts in
 
 ```sh
 pnpm install
-pnpm -F web dev                       # http://localhost:5173
+pnpm -F web dev                       # http://localhost:5173, or use https://feelock.vercel.app
 pnpm -F @feelock/sdk demo --chain 10143   # sanity check: look-alike FEE_MISMATCH, canonical SAFE
 ```
 

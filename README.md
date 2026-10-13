@@ -13,7 +13,8 @@ layers:
 - **Before signing:** the `@feelock/sdk` guard quotes every candidate pool, simulates the real swap from the user's
   own address, and returns `SAFE`, `UNVERIFIED`, `FEE_MISMATCH` or `LOOKUP_FAILED` per pool.
 
-Built for Monad Metropolis. Live on Monad testnet (see [Deployments](#deployments)). Specification:
+Built for Monad Metropolis. **Live on Monad testnet: [feelock.vercel.app](https://feelock.vercel.app)** (contracts in
+[Deployments](#deployments)). Specification:
 [docs/SPEC.md](docs/SPEC.md) · demo script: [docs/DEMO.md](docs/DEMO.md) · submission text:
 [docs/SUBMISSION.md](docs/SUBMISSION.md).
 
