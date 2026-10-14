@@ -13,10 +13,31 @@ layers:
 - **Before signing:** the `@feelock/sdk` guard quotes every candidate pool, simulates the real swap from the user's
   own address, and returns `SAFE`, `UNVERIFIED`, `FEE_MISMATCH` or `LOOKUP_FAILED` per pool.
 
-Built for Monad Metropolis. **Live on Monad testnet: [feelock.vercel.app](https://feelock.vercel.app)** (contracts in
-[Deployments](#deployments)). Specification:
+Built for Monad Metropolis (track: Trust, Identity & AI Infra). **Live on Monad testnet:
+[feelock.vercel.app](https://feelock.vercel.app)** (contracts in [Deployments](#deployments), judges start at
+[For judges](#for-judges)). Specification:
 [docs/SPEC.md](docs/SPEC.md) · demo script: [docs/DEMO.md](docs/DEMO.md) · submission text:
 [docs/SUBMISSION.md](docs/SUBMISSION.md).
+
+**What is new in this build window.** FeeLock is a new codebase, built on 2026-10-12 and 2026-10-13 inside the
+Monad Metropolis build window (2026-09-01 to 2026-10-13). The idea comes from our ETHGlobal Tokyo project
+[Klamp](https://github.com/EarthIsMine/klamp), which could only route around bad pools. Built here, for Monad:
+
+- Klamp kept each token's canonical pool in ENS text records on Sepolia. FeeLock replaces that with an on-chain
+  `CanonicalPoolRegistry` on Monad, written once and read with one call. Its CREATE2 issuer check
+  (`declareByCreate2`) is ported from Klamp's registrar; the token-`owner()` path (`declareByOwner`) is new; anyone
+  else reverts with `NotIssuer`. The demo launchpad (ported) now creates a FeeCommitHook pool and declares it inside
+  the launch transaction.
+- `FeeCommitHook` (a roadmap item in Klamp) is new: a fee cap fixed at pool creation, and the swapper's pinned fee
+  enforced in `beforeSwap`.
+- The guard is redesigned: dual simulation (quote vs the real swap from the user's address) and the verdicts
+  `SAFE / UNVERIFIED / FEE_MISMATCH / LOOKUP_FAILED`. The registry lookup keeps Klamp's `registered / not_registered /
+  lookup_failed` states.
+- Monad-specific work: gas limits sized for a chain that bills the limit, a rate-limited transport for the public
+  RPC, the testnet deployment, and Universal Router calldata for the official v4 deployment on Monad mainnet.
+
+**Who it is for.** Routers, wallets and AI trading agents that pick a pool by its quote and sign without a human
+reading the route; launchpads that want their token's real pool on record; and the traders behind all of them.
 
 ## The problem
 
@@ -91,6 +112,23 @@ as "not registered" or "not committed".
   (`MONAD_MAINNET_UNIVERSAL_ROUTERS`). On a mainnet fork, a swap through the official router with SDK calldata pays
   exactly the official quoter's quote, and a fee raised after the quote reverts it
   (`FEELOCK_FORK_TESTS=1 pnpm -F @feelock/sdk test`).
+
+## For judges
+
+No login and no install. Open **[feelock.vercel.app](https://feelock.vercel.app)**:
+
+1. Without a wallet you can still click **Review swap**: the app finds the three pools, quotes them and, with the
+   FeeLock switch on, simulates the swap and shows each pool's verdict (look-alike blocked at −9.94%, canonical SAFE,
+   state-flip UNVERIFIED). **Every pool, in detail** opens the full comparison.
+2. To swap, connect MetaMask (or any EIP-6963 wallet) on Monad Testnet (chain 10143) with a little testnet MON from
+   [faucet.monad.xyz](https://faucet.monad.xyz). Swap 0.001 MON with FeeLock off (15% slippage) and on, and compare
+   the result cards.
+3. `?feelock=on` opens with the switch on. If the public RPC is down, the app says so and shows a recorded snapshot
+   (`?snapshot` forces it).
+
+The on-chain backstop (scenario 2) needs the hook owner's key, so it is shown in the demo video and reproducible with
+the CLI on a local anvil chain (see [Quick start](#quick-start)) or from the test
+[`StateFlipAttack.t.sol`](contracts/test/StateFlipAttack.t.sol).
 
 ## Quick start
 
@@ -232,11 +270,17 @@ pool stopped at its 1% cap, and the swap carrying the pinned 0.3% fee reverted w
 
 Monad mainnet uses only the official Uniswap v4 deployment (PoolManager `0x188d586Ddcf52439676Ca21A244753fA19F9Ea8e`); FeeLock does not deploy its own v4 copy there.
 
-## Credits
+## Credits, prior code and AI use
 
-The idea comes from [Klamp](https://github.com/EarthIsMine/klamp) (ETHGlobal
-Tokyo 2026). FeeLock is a fresh codebase; files ported from Klamp record their
-source in the file header and commit message.
+- **Prior code.** The idea comes from [Klamp](https://github.com/EarthIsMine/klamp) (ETHGlobal Tokyo 2026, same
+  team). FeeLock is a fresh codebase. Files ported or adapted from Klamp record their source in the file header and
+  commit message: `QuoteAwareFeeHook` and its attack test, the demo launchpad, token and pool seeder, the registry's
+  CREATE2 declaration check, and the SDK's pool-key hashing and lookup states.
+- **Third-party code.** Uniswap v4-core and v4-periphery (BUSL-1.1 until their change date) and forge-std as Foundry
+  dependencies; viem, React and Vite in TypeScript.
+- **AI use.** Much of the code, tests and docs were written with Claude Code (Anthropic) under the author's direction
+  and review; those commits carry a `Co-Authored-By: Claude` line. Every claim in this README is backed by a test or a
+  testnet transaction linked above.
 
 ## License
 
